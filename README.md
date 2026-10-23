@@ -817,7 +817,7 @@ void Shell::PrintHelp()
 ```text
 h        help
 boot     boot timing
-thread   thread list|show|pause|resume|reset
+thread   thread list|show|pause|resume|exit|reset
 var      var list|get|set
 log      log list|on|off|mode
 ```

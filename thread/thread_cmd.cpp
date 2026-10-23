@@ -2,14 +2,15 @@
  * @file thread_cmd.cpp
  * @author qingyu
  * @brief thread 命令实现 — list/show/pause/resume/reset（输出走 DUST_LOG 命令响应）
- * @version 0.3
- * @date 2026-10-20
+ * @version 0.4
+ * @date 2026-10-23
  *
  * @copyright Copyright (c) 2026
  *
  */
 
 #include "thread_cmd.hpp"
+#include "thread.hpp"
 #include "thread_registry.hpp"
 #include "shell_cmd.hpp"
 #include "token.hpp"
@@ -35,6 +36,8 @@ static const char* StateName(const ThreadStats& s)
 
 /**
  * @brief thread list：遍历注册表，每个线程一行
+ *
+ * 已退出的线程会从注册表移除，不会出现在列表里。
  */
 void ThreadCmd::CmdList()
 {
@@ -164,6 +167,27 @@ void ThreadCmd::CmdResume(const char* name)
 }
 
 /**
+ * @brief thread exit：终止线程（走 ExitHook → 注销注册表 → 打日志 → k_thread_abort）
+ * @param name 线程名
+ */
+void ThreadCmd::CmdExit(const char* name)
+{
+    if (name == nullptr || *name == '\0') {
+        Log::SendCommandLine("usage: thread exit <name>");
+        return;
+    }
+
+    ThreadBase* t = thread_registry::Find(name);
+    if (t == nullptr) {
+        Log::SendCommandLine("thread exit: not found");
+        return;
+    }
+
+    t->Exit();
+    Log::SendCommandLine("thread exit: ok");
+}
+
+/**
  * @brief thread reset：清零线程计数器
  * @param name 线程名
  */
@@ -211,16 +235,20 @@ void ThreadCmd::Process(uint8_t* line)
     {
         CmdResume(arg);
     }
+    else if (std::strcmp(sub, "exit") == 0)
+    {
+        CmdExit(arg);
+    }
     else if (std::strcmp(sub, "reset") == 0)
     {
         CmdReset(arg);
     }
     else
     {
-        Log::SendCommandLine("thread list|show|pause|resume|reset <name>");
+        Log::SendCommandLine("thread list|show|pause|resume|exit|reset <name>");
     }
 }
 
-REGISTER_SHELL_CMD("thread", "thread list|show|pause|resume|reset", ThreadCmd::Process, thread);
+REGISTER_SHELL_CMD("thread", "thread list|show|pause|resume|exit|reset", ThreadCmd::Process, thread);
 
 } // namespace debug
