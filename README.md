@@ -876,23 +876,22 @@ class ThreadBase
 | 字段 | 含义 |
 |------|------|
 | `run_count` | 任务体进入次数 |
-| `retry_count` | 可恢复错误次数 |
-| `fatal_count` | 不可恢复错误次数 |
+| `retry_count` | 任务返回 `Retry` 的次数 |
 | `drop_count` | 业务侧 `CountDrop()` 计数 |
 | `run_ns` / `max_run_ns` / `last_run_ns` | 累计 / 最长 / 最近一次耗时 |
 | `stack_unused` | 栈剩余字节（需 `CONFIG_INIT_STACKS` + `CONFIG_THREAD_STACK_INFO`） |
 | `running` / `paused` | 状态 |
 
-**只统计受管任务**（`Start(TaskFunc, period, ...)`）。裸任务（`Start(k_thread_entry_t, ...)`）
-没有外壳，`run_count` 恒为 0，但暂停/恢复仍然有效。
+统计由 `Thread::Run` 外壳采集，只在受管任务（`Start(TaskFunc, period, ...)`）上生效。
 
 ### 7.3 命令
 
 ```text
-thread list             每行：THREAD / STATE / RUN / RETRY / FATAL / DROP / STACK
-thread show <name>      state / run / retry-fatal / drop / last / max / total / stack
+thread list             每行：THREAD / STATE / RUN / RETRY / DROP / STACK
+thread show <name>      state / run / retry / drop / last / max / total / stack
 thread pause <name>     k_thread_suspend，保留全部现场
 thread resume <name>    k_thread_resume，从挂起处继续
+thread exit <name>      走 ExitHook → 注销注册表 → 打日志 → k_thread_abort
 thread reset <name>     清零计数器（不影响暂停状态）
 ```
 
@@ -1062,10 +1061,10 @@ A：声明写进了 `namespace debug`，C++ 名字修饰让它变成 `debug::__s
 A：命令表只存名字和函数指针，启动后不变，只读即可；耗时槽需要在启动时写入 `ns` / `ok`，必须是可写的 RAM 段（初值从 ROM 拷贝）。
 
 **Q：`thread list` 里的 RUN 为什么一直是 0？**
-A：该线程用的是裸任务（`Start(k_thread_entry_t, ...)`），没有受管任务外壳，不采集统计。要统计就改成 `Start(TaskFunc, period, ...)` 并把任务体写成「一拍」。
+A：线程没有通过 `Run` 外壳跑起来（`Start` 没有被调用，或线程已退出），统计没有采集点。
 
 **Q：`thread pause` 之后 `thread resume` 没反应？**
-A：先看 `thread list` 的 STATE：如果是 `dead`，线程已经退出了（`Fatal` 或钩子返回 false），`resume` 对已退出的线程无效。`paused` 状态才可恢复。
+A：先看 `thread list` 的 STATE：如果线程已经退出（返回 `Exit`、Retry 钩子放弃、或被 `thread exit` 杀掉），它已被移出注册表，`resume` 无从作用。`paused` 状态才可恢复。
 
 **Q：`boot timing` 的 total 为什么比实际启动时间小很多？**
 A：`total` 是**所有条目执行时间之和**，不含阶段间的 `k_msleep(500)`（9 次 = 4.5 秒）。要看总启动时间需要另外打点。
