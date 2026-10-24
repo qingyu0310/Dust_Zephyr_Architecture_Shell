@@ -176,7 +176,6 @@ static bool thread_init()
  */
 static bool thread_start()
 {
-    shell_.SetKeepAlive(true);      // fatal 冻结业务线程时保留 shell（日志消费者 + 观察窗口）
     shell_.Start();
     Log::MarkShellThreadReady();                  		// 首次运行即接管发送（重复置 true 无害）
     DUST_LOG_INF("shell send owner taken");        // 发送模式切换：调用点直发 → shell 线程驱动

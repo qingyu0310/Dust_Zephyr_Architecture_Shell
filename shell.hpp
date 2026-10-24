@@ -35,7 +35,9 @@ public:
 	
     void Start(ThreadPrio prio = ThreadPrio::Lowest)
     {
-        thread_.Start(TaskEntry, K_NO_WAIT, prio, this, "shell");   // 节拍由 k_sem_take 决定
+        // shell 是日志唯一消费者与停机后的观察窗口：Recover 全杀时保留
+        thread_.Start(TaskEntry, K_NO_WAIT, prio, this, "shell",
+                      ThreadFaultConfig{ nullptr, nullptr, ThreadFaultPolicy::Recover, true });
     }
 
     /**
@@ -44,15 +46,6 @@ public:
     void Pause()  { thread_.Pause(); }
     void Resume() { thread_.Resume(); }
     bool Paused() const { return thread_.Paused(); }
-
-    /**
-     * @brief 设置「保留标记」：致命错误冻结业务线程时本线程继续运行
-     *
-     * shell 是日志的唯一消费者和唯一的现场观察窗口，不能被冻结。
-     *
-     * @param on true=保留
-     */
-    void SetKeepAlive(bool on) { thread_.SetKeepAlive(on); }
 
     /**
      * @brief 输出帮助：遍历命令表，每族一行

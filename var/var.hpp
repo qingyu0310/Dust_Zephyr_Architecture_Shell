@@ -2,8 +2,8 @@
  * @file var.hpp
  * @author qingyu
  * @brief 调试变量注册与 var 命令 — 链接段收集 + var list/get/set
- * @version 0.1
- * @date 2026-08-06
+ * @version 0.2
+ * @date 2026-10-24
  *
  * @copyright Copyright (c) 2026
  *
@@ -14,6 +14,7 @@
 #ifdef CONFIG_DUST_CMD_SHELL_VAR
 
 #include <cstdint>
+#include <zephyr/toolchain.h>   // _CONCAT：宏内拼接 __COUNTER__ 需要两层展开
 
 namespace debug {
 
@@ -113,11 +114,8 @@ template<> struct TypeMap<bool>     { static constexpr auto type = VarType::Bool
  * REGISTER_SHELL_VAR("my_value", my_value);
  * @endcode
  */
-#define PP_CONCAT(a, b)  PP_CAT(a, b)
-#define PP_CAT(a, b) a##b
-
 #define REGISTER_SHELL_VAR(name_, var_)                                                   \
-    static ::debug::Entry PP_CONCAT(s_shell_var_, __COUNTER__)                                       \
+    static ::debug::Entry _CONCAT(s_shell_var_, __COUNTER__)                              \
         __attribute__((used, section(".shell_var"), aligned(sizeof(void*)))) = {          \
         .name = (name_),                                                                  \
         .type = ::debug::TypeMap<decltype(var_)>::type,                                   \
