@@ -53,10 +53,7 @@ void ThreadCmd::CmdList()
         if (!t->GetStats(s)) continue;
 
         char line[128];
-        snprintf(line, sizeof(line), "%-15s %-9s %-8u %-7u %-7u %u",
-                 s.name, StateName(s),
-                 (unsigned)s.run_count, (unsigned)s.retry_count,
-                 (unsigned)s.drop_count, (unsigned)s.stack_unused);
+        snprintf(line, sizeof(line), "%-15s %-9s %-8u %-7u %-7u %u", s.name, StateName(s), (unsigned)s.run_count, (unsigned)s.retry_count, (unsigned)s.drop_count, (unsigned)s.stack_unused);
         Log::SendCommandLine(line);
     }
 

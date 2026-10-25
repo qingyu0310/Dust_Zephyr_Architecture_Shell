@@ -349,7 +349,11 @@ void Log::ProcessLogCommand(uint8_t* line)
 void Log::PrintLogList()
 {
     const LogEntry* active = ActiveDebugEntry();
-    for (const LogEntry* e = FirstDebugEntry(); e != nullptr; e = NextDebugEntry(e))
+    const LogEntry* e = FirstDebugEntry();
+
+    if (e == nullptr) { SendCommandLine("(none)"); return; }
+
+    for (; e != nullptr; e = NextDebugEntry(e))
     {
         char line[160];
         snprintf(line, sizeof(line), "%s %s %s", e->name, (e == active) ? "[ON]" : "[off]", e->vofa ? "[vofa]" : "[color]");
