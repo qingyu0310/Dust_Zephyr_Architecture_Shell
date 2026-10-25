@@ -2,8 +2,8 @@
  * @file shell.cpp
  * @author qingyu
  * @brief 自维护 UART 线程底座 — 命令表分派 + 初始化接入 DUST_LOG
- * @version 0.7
- * @date 2026-10-22
+ * @version 0.8
+ * @date 2026-10-26
  *
  * @copyright Copyright (c) 2026
  *
@@ -86,7 +86,7 @@ static void HelpCmd(uint8_t* args)
     Shell::PrintHelp();
 }
 
-REGISTER_SHELL_CMD("h", "help", HelpCmd, help);
+REGISTER_SHELL_CMD("h", "help", HelpCmd);
 
 /**
  * @brief 任务单拍：等通道事件，驱动日志发送并处理收到的命令行

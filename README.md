@@ -174,7 +174,7 @@ USE_CMD_SHELL → select DUST_CMD_SHELL_LOG ─┐
 - `log` 依赖 `shell`：`Log::Init()` / `Log::BindOutputStream()` 在 shell 的 `dbg_init` 里执行——没有 shell 就没人初始化 Log（通道为 `nullptr` 时发送静默丢弃）；`log` 命令也走 shell 的 `ProcessLine` 分发
 
 **命令分派（链接段注册）**：命令族不写在 `shell.cpp` 里，而是由各模块用
-`REGISTER_SHELL_CMD(name, help, handler, ident)` 注册到 `.shell_cmd` 段。
+`REGISTER_SHELL_CMD(name, help, handler)` 注册到 `.shell_cmd` 段。
 `ProcessLine` 取第一个 token 后遍历该段匹配，命中即把剩余参数串交给 handler。
 `h` 的输出同样来自遍历，新增命令族不需要改 `shell.cpp`，帮助自动出现。
 
@@ -241,7 +241,7 @@ static void MyCmd(uint8_t* args)
     // args 是「命令名之后」的原始参数串
 }
 
-REGISTER_SHELL_CMD("mycmd", "mycmd 说明", MyCmd, mycmd);
+REGISTER_SHELL_CMD("mycmd", "mycmd 说明", MyCmd);
 ```
 
 ---
@@ -857,7 +857,7 @@ struct ShellCmdEntry
 ### 6.3 注册宏
 
 ```cpp
-REGISTER_SHELL_CMD(name_, help_, handler_, ident_)
+REGISTER_SHELL_CMD(name_, help_, handler_)
 ```
 
 | 参数 | 说明 |
@@ -865,17 +865,16 @@ REGISTER_SHELL_CMD(name_, help_, handler_, ident_)
 | `name_` | 命令族名（字符串字面量） |
 | `help_` | 帮助摘要（字符串字面量，一行） |
 | `handler_` | 族入口，签名 `void(uint8_t* args)` |
-| `ident_` | 注册项标识（唯一标识符，用于生成变量名，通常与命令族同名） |
 
 展开为：
 
 ```cpp
-static const ::debug::ShellCmdEntry kShellCmd_<ident_>
+static const ::shell::ShellCmdEntry _CONCAT(kShellCmd_, __COUNTER__)
     __attribute__((used, __section__(".shell_cmd"))) = { name_, handler_, help_ };
 ```
 
-**为什么需要 `ident_`**：`handler_` 可能是 `ThreadCmd::Process` 这种带 `::` 的限定名，
-不能直接拼进标识符（`kShellCmd_ThreadCmd::Process` 非法）。用独立的 `ident_` 解耦命名。
+**变量名用 `_CONCAT(kShellCmd_, __COUNTER__)`**（`<zephyr/toolchain.h>`，与
+`REGISTER_SHELL_VAR` 同款）：`__COUNTER__` 保证唯一，不必让调用方再传一个标识符。
 
 **代价**：每个命令族占 12 B（三个指针）。当前 5 个族 = 60 B。
 
@@ -932,7 +931,7 @@ void Var::Process(uint8_t *line)
 
 ```cpp
 static void HelpCmd(uint8_t* args) { (void)args; Shell::PrintHelp(); }
-REGISTER_SHELL_CMD("h", "help", HelpCmd, help);
+REGISTER_SHELL_CMD("h", "help", HelpCmd);
 ```
 
 `Shell::PrintHelp()` 遍历同一个段：
@@ -983,7 +982,7 @@ inline uint8_t* NextToken(uint8_t* line, const char*& out);
       - DispatchSubCmd(line, kSubCmds, n, &XxxCmd::CmdUsage)
       - 每个子命令一个 static void CmdXxxSub(uint8_t* args)
       - 未知子命令走 CmdUsage，输出用法提示（不带 ?: 前缀）
-③ 文件末尾写 REGISTER_SHELL_CMD("xxx", "xxx ...", XxxCmd::Process, xxx);
+③ 文件末尾写 REGISTER_SHELL_CMD("xxx", "xxx ...", XxxCmd::Process);
 ④ framework/shell/CMakeLists.txt 的 DUST_CMD_SHELL 块加源文件（若是新 .cpp）
 ```
 
@@ -1192,8 +1191,8 @@ A：**只改自己的文件**。写 `void Xxx::Process(uint8_t*)` + 一行 `REGI
 **Q：`h` 的输出顺序为什么每次可能不同？**
 A：`.shell_cmd` 段内顺序由链接器决定，不保证等于注册的书写顺序。当前 5 条命令怎么排都看得清；若需要固定顺序，给 `ShellCmdEntry` 加 `order` 字段并排序输出。
 
-**Q：为什么 `REGISTER_SHELL_CMD` 要四个参数而不是三个？**
-A：第四个 `ident_` 用来生成变量名。`handler_` 可能是 `ThreadCmd::Process` 这种带 `::` 的限定名，不能拼进标识符（`kShellCmd_ThreadCmd::Process` 非法）。拆开后 `nm` 里也能看到 `kShellCmd_thread` 这种人能读的名字。
+**Q：`REGISTER_SHELL_CMD` 的变量名是怎么来的？**
+A：`_CONCAT(kShellCmd_, __COUNTER__)` 由宏自己生成唯一标识符，调用方不用传。`handler_` 可能是 `ThreadCmd::Process` 这种带 `::` 的限定名，不能拼进标识符，所以用 `__COUNTER__` 而不是拼 handler 名。
 
 **Q：段边界符号链接时报 `undefined reference to debug::__shell_cmd_start`？**
 A：声明写进了 `namespace debug`，C++ 名字修饰让它变成 `debug::__shell_cmd_start`，而链接脚本导出的是 C 符号 `__shell_cmd_start`。用 `extern "C"` 声明即可。

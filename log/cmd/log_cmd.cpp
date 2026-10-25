@@ -2,8 +2,8 @@
  * @file log_cmd.cpp
  * @author qingyu
  * @brief [① 命令层] DUST_LOG 命令层实现 — log list/on/off/mode
- * @version 0.2
- * @date 2026-10-25
+ * @version 0.3
+ * @date 2026-10-26
  *
  * @copyright Copyright (c) 2026
  *
@@ -138,4 +138,4 @@ void Process(uint8_t* line)
 
 } // namespace shell::logcmd
 
-REGISTER_SHELL_CMD("log", "log list|on <name> [N]|off|mode", ::shell::logcmd::Process, log);
+REGISTER_SHELL_CMD("log", "log list|on <name> [N]|off|mode", ::shell::logcmd::Process);

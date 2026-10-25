@@ -2,8 +2,8 @@
  * @file thread_cmd.cpp
  * @author qingyu
  * @brief thread 命令实现 — list/show/pause/resume/reset（输出走 DUST_LOG 命令响应）
- * @version 0.5
- * @date 2026-10-25
+ * @version 0.6
+ * @date 2026-10-26
  *
  * @copyright Copyright (c) 2026
  *
@@ -296,6 +296,6 @@ void ThreadCmd::CmdUsage(uint8_t* args)
     Log::SendCommandLine("thread list|show|pause|resume|exit|reset <name>");
 }
 
-REGISTER_SHELL_CMD("thread", "thread list|show|pause|resume|exit|reset", ThreadCmd::Process, thread);
+REGISTER_SHELL_CMD("thread", "thread list|show|pause|resume|exit|reset", ThreadCmd::Process);
 
 } // namespace shell

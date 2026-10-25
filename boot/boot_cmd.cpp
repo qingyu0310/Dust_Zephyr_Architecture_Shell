@@ -2,8 +2,8 @@
  * @file boot_cmd.cpp
  * @author qingyu
  * @brief boot 命令实现 — 启动期耗时（输出走 DUST_LOG 命令响应）
- * @version 0.3
- * @date 2026-10-20
+ * @version 0.4
+ * @date 2026-10-26
  *
  * @copyright Copyright (c) 2026
  *
@@ -97,6 +97,6 @@ void BootCmd::Process(uint8_t* line)
     }
 }
 
-REGISTER_SHELL_CMD("boot", "boot timing", BootCmd::Process, boot);
+REGISTER_SHELL_CMD("boot", "boot timing", BootCmd::Process);
 
 } // namespace shell

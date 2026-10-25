@@ -2,8 +2,8 @@
  * @file shell_cmd.hpp
  * @author qingyu
  * @brief shell 命令族注册 — 链接段收集 + 分派遍历
- * @version 0.1
- * @date 2026-10-20
+ * @version 0.2
+ * @date 2026-10-26
  *
  * @copyright Copyright (c) 2026
  *
@@ -12,6 +12,7 @@
 #pragma once
 
 #include <cstdint>
+#include <zephyr/toolchain.h>   // _CONCAT：宏内拼接 __COUNTER__ 需要两层展开
 
 namespace shell {
 
@@ -67,12 +68,11 @@ inline const ShellCmdEntry* ShellCmdEnd()
  * @param name_    命令族名（字符串字面量）
  * @param help_    帮助摘要（字符串字面量，一行）
  * @param handler_ 族入口函数，签名 void(uint8_t* args)
- * @param ident_   注册项标识（唯一标识符，通常用命令族名）
  */
-#define REGISTER_SHELL_CMD(name_, help_, handler_, ident_)                      \
-    static const ::shell::ShellCmdEntry kShellCmd_##ident_                      \
-        __attribute__((used, __section__(".shell_cmd"))) = {                    \
-        name_, handler_, help_                                                  \
+#define REGISTER_SHELL_CMD(name_, help_, handler_)                  	 	\
+    static const ::shell::ShellCmdEntry _CONCAT(kShellCmd_, __COUNTER__) 	\
+        __attribute__((used, __section__(".shell_cmd"))) = {       		 	\
+        name_, handler_, help_                                     		 	\
     }
 
 } // namespace shell

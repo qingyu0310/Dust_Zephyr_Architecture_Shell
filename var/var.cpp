@@ -2,8 +2,8 @@
  * @file var.cpp
  * @author qingyu
  * @brief var 命令实现 — var list/get/set（输出走 DUST_LOG 命令响应）
- * @version 0.3
- * @date 2026-10-25
+ * @version 0.4
+ * @date 2026-10-26
  *
  * @copyright Copyright (c) 2026
  *
@@ -289,6 +289,6 @@ void Var::CmdUsage(uint8_t* args)
     Log::SendCommandLine("var list|get <name>|set <name> <val>");
 }
 
-REGISTER_SHELL_CMD("var", "var list|get|set", Var::Process, var);
+REGISTER_SHELL_CMD("var", "var list|get|set", Var::Process);
 
 } // namespace shell
