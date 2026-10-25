@@ -1,9 +1,12 @@
-# shell 调试台模块（log / var / shell 底座）
+# shell 调试台模块（shell 底座 / log 四层 / var / thread / boot）
 
 > 一套自研的 DMA 日志系统（DUST_LOG）与自维护 UART shell 融合的统一调试台。
-> 模块分工：**log**（日志打印 + 通道策略 + 帧队列仲裁 + 参数快照异步格式化 + 发送泵）、**var**（调试变量注册与读写）、**shell**（UART 线程底座 + 命令表分派 + 日志发送驱动）、**thread**（线程运行统计与暂停/恢复）、**boot**（启动期耗时查询）。
+> 模块分工：**log**（**四层流水线**：命令 / 加工 / 队列 / 发送）、**var**（调试变量注册与读写）、**shell**（UART 线程底座 + 命令表分派 + 日志发送驱动）、**thread**（线程运行统计与暂停/恢复）、**boot**（启动期耗时查询）。
 > 命令族通过 **链接段注册**（`REGISTER_SHELL_CMD` → `.shell_cmd`），新增命令族不需要修改 `shell.cpp`。
 > 替代 Zephyr log，根治 uart3 回调槽冲突卡死。
+>
+> **命名空间统一 `shell`**：`shell::Shell` / `shell::Log` / `shell::Var` / `shell::ThreadCmd` / `shell::BootCmd`；log 的两个子层是 `shell::logcmd`（① 命令）与 `shell::logproc`（② 加工）。
+> 不用 `namespace log` 是因为它会撞 C 数学库的 `double log(double)`（实测编译报错）。
 
 ---
 
@@ -29,9 +32,14 @@
 shell/
 ├── shell.hpp / shell.cpp       底座：UART 线程 + 命令表分派 + 日志发送驱动
 ├── shell_cmd.hpp               命令族注册宏 + 段边界访问
-├── token.hpp                   行切分工具（NextToken / SkipSpace）
+├── token.hpp                   行切分工具（NextToken / SkipSpace / DispatchSubCmd）
 ├── boot/                       boot 命令（启动期耗时查询）
-├── log/                        日志子系统（门面 + 策略 + 队列 + 发送泵）
+├── log/                        日志子系统（门面 + 四层）
+│   ├── log.hpp / log.cpp       门面：对外宏 + Log 类（纯转发）
+│   ├── cmd/                    ① 命令层：log 子命令词法解析 + 查表匹配
+│   ├── process/                ② 加工层：日志入口 / 分频 / 格式化 / 上色 / 帧包装
+│   ├── queue/                  ③ 队列层：记录队列 + 帧队列 + 策略表
+│   └── transport/              ④ 发送层：DMA 泵
 ├── var/                        调试变量（链接段收集 + var 命令）
 └── thread/                     thread 命令（线程运行统计与暂停/恢复）
 ```
@@ -46,17 +54,34 @@ shell/
 | 命令表 | [shell_cmd.hpp](shell_cmd.hpp) | `REGISTER_SHELL_CMD` 宏 + `.shell_cmd` 段遍历 | `DUST_CMD_SHELL` |
 | 行切分 | [token.hpp](token.hpp) | `NextToken` / `SkipSpace`，各命令族共用 | `DUST_CMD_SHELL` |
 
-**log 分层（全部头文件内联实现，只有一个 .cpp）**：
+**log 四层（单向流水线 ①→②→③→④，详见 [log/README.md](log/README.md)）**：
 
-| 文件 | 层 | 内容 |
-|------|----|------|
-| [log/log.hpp](log/log.hpp) | 门面 | `Log` 类 + `DUST_LOG_*` 宏族 |
-| [log/log_policy.hpp](log/log_policy.hpp) | 策略 | `LogColor` / `TxPriority` / `LogChannel` + `LogChannelPolicy` / `TxPriorityPolicy` 表 |
-| [log/log_debug.hpp](log/log_debug.hpp) | DBG 源注册 | `LogEntry` + `DebugSourceRegistry`（名字/选中/选择代数/输出模式） |
-| [log/log_record.hpp](log/log_record.hpp) | 记录与格式化 | `LogRecord` + `BuildRecordFromVaList` / `FormatRecordToText` / `WrapOutputFrame` |
-| [log/log_queue.hpp](log/log_queue.hpp) | 队列与仲裁 | `TxFrame` + `LogRecordQueue` / `TxFrameQueue` |
-| [log/log_transport.hpp](log/log_transport.hpp) | 发送泵 | `LogTransport`（通道绑定 / DMA 空闲续发 / 发送完成回调） |
-| [log/log.cpp](log/log.cpp) | 门面实现 | `Log` 各入口实现 + `log` 命令解析 |
+| 文件 | 层 | 行数 | 内容 |
+|------|----|------|------|
+| [log/log.hpp](log/log.hpp) | 门面 | 144 | `DUST_LOG_*` 宏族 + `Log` 类（纯转发，无实现） |
+| [log/log.cpp](log/log.cpp) | 门面 | 41 | 只有 `Init()` + `ProcessLogCommand()` |
+| [log/cmd/log_cmd.hpp](log/cmd/log_cmd.hpp) | **① 命令层** | 28 | `shell::logcmd::Process` 声明 |
+| [log/cmd/log_cmd.cpp](log/cmd/log_cmd.cpp) | **① 命令层** | 141 | `DispatchSubCmd` 表 + 4 个子命令 + `log list` 输出 |
+| [log/process/log_process.hpp](log/process/log_process.hpp) | **② 加工层** | 194 | 日志入口 / 分频 / 包装 / DBG 操作的声明 |
+| [log/process/log_process.cpp](log/process/log_process.cpp) | **② 加工层** | 363 | **四个实例的唯一持有者** + 全部加工实现 |
+| [log/process/log_debug.hpp](log/process/log_debug.hpp) | ② 加工层 | 160 | `LogEntry`（含 `divisor`/`quota`）+ `DebugSourceRegistry` |
+| [log/queue/log_queue.hpp](log/queue/log_queue.hpp) | **③ 队列层** | 324 | `TxFrame` + `LogRecordQueue` / `TxFrameQueue` |
+| [log/queue/log_record.hpp](log/queue/log_record.hpp) | ③ 队列层 | 208 | `LogRecord` + `BuildRecordFromVaList` / `FormatRecordToText` |
+| [log/queue/log_policy.hpp](log/queue/log_policy.hpp) | ③ 队列层 | 120 | `LogColor` / `TxPriority` / `LogChannel` + 策略表 |
+| [log/transport/log_transport.hpp](log/transport/log_transport.hpp) | **④ 发送层** | 79 | `LogTransport`（通道绑定 / DMA 空闲续发 / 发送完成回调） |
+
+**单向依赖硬约束**（验收红线）：
+
+```text
+① 命令层  →  ② 加工层  →  ③ 队列层  →  ④ 发送层
+```
+
+只允许上层调紧邻下层。**禁止**跳层、反向、同层互调、越权读写实例。唯一例外是 ④ 的
+`HandleTxDone` 用 `k_sem_give` 唤醒 shell 线程（异步唤醒，不是层间调用）。
+
+约束靠 **② 加工层独占四个实例** 保证：`dbg_` / `pump_` / `txq_` / `recq_` 只在
+`log_process.cpp` 里定义，命令层拿不到 → 越权无从下手。目录即约束：
+`cmd/` 里出现 `#include "log_queue.hpp"` 一眼就是违例。
 
 **依赖链**：
 
@@ -144,7 +169,7 @@ REGISTER_SHELL_CMD("mycmd", "mycmd 说明", MyCmd, mycmd);
 
 ## 3. log 模块详解
 
-### 3.1 枚举与常量（[log_policy.hpp](log/log_policy.hpp)）
+### 3.1 枚举与常量（[log_policy.hpp](log/queue/log_policy.hpp)）
 
 ```cpp
 // 颜色：TrueColor（24 位 RGB），输出 \x1b[38;2;R;G;Bm
@@ -216,16 +241,16 @@ inline constexpr TxPriorityPolicy kTxPriorityPolicies[] = {
 
 | 常量 | 值 | 定义处 | 含义 |
 |------|-----|--------|------|
-| `kLogBufSize` | 256 | [log_record.hpp](log/log_record.hpp) | 格式化缓冲：可变参数展开目标（超 255 截断） |
-| `kColorOutExtra` | 16 | [log_record.hpp](log/log_record.hpp) | 颜色输出缓冲额外预留（ANSI 转义 + `\r\n`） |
-| `kLineOutExtra` | 4 | [log_record.hpp](log/log_record.hpp) | 行输出缓冲额外预留（`\r\n`） |
-| `kMaxLogArgs` | 4 | [log_record.hpp](log/log_record.hpp) | 参数快照槽上限（`%f` 占 2 槽） |
-| `kMaxLogRecords` | 8 | [log_queue.hpp](log/log_queue.hpp) | LogRecord 原始请求队列深度 |
-| `kTxFrameSize` | 128 | [log_queue.hpp](log/log_queue.hpp) | 帧数据区大小（含尾部 `\0` 保险） |
-| `kTxMaxLen` | 127 | [log_queue.hpp](log/log_queue.hpp) | 发送最长字节长度，超长截断 |
-| `kTxPoolCount` | 8 | [log_queue.hpp](log/log_queue.hpp) | 帧池帧数（8 × 128B = 1KB） |
-| `kNullIndex` | 255 | [log_queue.hpp](log/log_queue.hpp) | 索引链表空值（255 = 无下一项） |
-| `kMaxLogEntries` | 64 | [log_debug.hpp](log/log_debug.hpp) | DBG 条目数上限 |
+| `kLogBufSize` | 256 | [log_record.hpp](log/queue/log_record.hpp) | 格式化缓冲：可变参数展开目标（超 255 截断） |
+| `kColorOutExtra` | 16 | [log_record.hpp](log/queue/log_record.hpp) | 颜色输出缓冲额外预留（ANSI 转义 + `\r\n`） |
+| `kLineOutExtra` | 4 | [log_record.hpp](log/queue/log_record.hpp) | 行输出缓冲额外预留（`\r\n`） |
+| `kMaxLogArgs` | 4 | [log_record.hpp](log/queue/log_record.hpp) | 参数快照槽上限（`%f` 占 2 槽） |
+| `kMaxLogRecords` | 8 | [log_queue.hpp](log/queue/log_queue.hpp) | LogRecord 原始请求队列深度 |
+| `kTxFrameSize` | 128 | [log_queue.hpp](log/queue/log_queue.hpp) | 帧数据区大小（含尾部 `\0` 保险） |
+| `kTxMaxLen` | 127 | [log_queue.hpp](log/queue/log_queue.hpp) | 发送最长字节长度，超长截断 |
+| `kTxPoolCount` | 8 | [log_queue.hpp](log/queue/log_queue.hpp) | 帧池帧数（8 × 128B = 1KB） |
+| `kNullIndex` | 255 | [log_queue.hpp](log/queue/log_queue.hpp) | 索引链表空值（255 = 无下一项） |
+| `kMaxLogEntries` | 64 | [log_debug.hpp](log/process/log_debug.hpp) | DBG 条目数上限 |
 
 **每帧字节开销**（TrueColor 上色路径）：
 
@@ -266,7 +291,7 @@ struct LogRecord      // 日志原始请求（未格式化，异步段生产队�
 };
 ```
 
-`DebugSourceRegistry`（[log_debug.hpp](log/log_debug.hpp)）只管**名字与状态**，不感知队列/优先级/格式化：
+`DebugSourceRegistry`（[log_debug.hpp](log/process/log_debug.hpp)）只管**名字与状态**，不感知队列/优先级/格式化：
 
 ```cpp
 class DebugSourceRegistry
@@ -292,9 +317,9 @@ private:
 
 整个日志系统的队列全部是**静态数组 + 数组索引链表**（`uint8_t next` 存数组下标，`255`=空），运行期不 new/malloc。
 
-**① `TxFrameQueue`（[log_queue.hpp](log/log_queue.hpp)）**：内部维护 `frames/free_head/head/tail`，负责发送帧池、按档插队、池满挤帧、按 epoch 跳过作废 DBG 帧。
+**① `TxFrameQueue`（[log_queue.hpp](log/queue/log_queue.hpp)）**：内部维护 `frames/free_head/head/tail`，负责发送帧池、按档插队、池满挤帧、按 epoch 跳过作废 DBG 帧。
 
-**② `LogRecordQueue`（[log_queue.hpp](log/log_queue.hpp)）**：内部维护 `records/free_head/head/tail`，负责异步段未格式化请求的 FIFO、池满丢弃、按 epoch 跳过作废 DBG 记录，以及格式化完成后的回收。
+**② `LogRecordQueue`（[log_queue.hpp](log/queue/log_queue.hpp)）**：内部维护 `records/free_head/head/tail`，负责异步段未格式化请求的 FIFO、池满丢弃、按 epoch 跳过作废 DBG 记录，以及格式化完成后的回收。
 
 帧在 `TxFrameQueue` 内流转（分配→入队→发送→回收），`LogRecord` 在 `LogRecordQueue` 内流转（快照入队→shell 出队→格式化入帧池→回空闲）。静态池 + 索引链表 = 时间确定、无碎片；封装后 `Log` 只表达业务动作。
 
@@ -302,17 +327,17 @@ private:
 
 | 宏 | 门面函数 | 通道 | 行为 |
 |----|---------|------|------|
-| `DUST_LOG_INF` | `Log::PrintInfo` | Info | `PrintColoredLog(Info, ...)` |
-| `DUST_LOG_ERR` | `Log::PrintError` | Error | 同上，色不同 |
-| `DUST_LOG_OK` | `Log::PrintOk` | Ok | 同上 |
-| `DUST_LOG_WRN` | `Log::PrintWarning` | Warning | 同上 |
-| `DUST_LOG_DBG(name, ...)` | `Log::PrintSelectedDebug(e, ...)` | Debug | `e != dbg_.Active()` 静默；否则按**条目标志**决定形态 |
-| （内部） | `Log::SendCommandLine` | Command | 命令响应直发（带 `\r\n`） |
+| `DUST_LOG_INF` | `shell::logproc::Info` | Info | `Emit(Info, ...)` |
+| `DUST_LOG_ERR` | `shell::logproc::Error` | Error | 同上，色不同 |
+| `DUST_LOG_OK` | `shell::logproc::Ok` | Ok | 同上 |
+| `DUST_LOG_WRN` | `shell::logproc::Warning` | Warning | 同上 |
+| `DUST_LOG_DBG(name, ...)` | `shell::logproc::Debug(e, ...)` | Debug | `e != dbg_.Active()` 静默；`PassDivisor` 分频；否则按**条目标志**决定形态 |
+| （内部） | `shell::logproc::CommandLine` | Command | 命令响应直发（带 `\r\n`） |
 
-`PrintColoredLog` 内部按 **`shell_own_` 分时段**（详见 §3.5）：
+`Emit` 内部按 **`shell_own_` 分时段**（详见 §3.5），实现位于 `process/log_process.cpp`：
 
 ```cpp
-void Log::PrintColoredLog(LogChannel channel, const char* fmt, va_list ap)
+void Emit(LogChannel channel, const char* fmt, va_list ap)
 {
     const LogChannelPolicy& policy = GetLogChannelPolicy(channel);
 
@@ -321,7 +346,7 @@ void Log::PrintColoredLog(LogChannel channel, const char* fmt, va_list ap)
         char buf[kLogBufSize];
         vsnprintf(buf, sizeof(buf), fmt, ap);
         char out[kLogBufSize + kColorOutExtra];
-        int n = WrapOutputFrame(policy.prefix, policy.ansi_color, policy.color, buf, out, sizeof(out));
+        int n = Wrap(policy, buf, out, sizeof(out));
         if (n > 0) QueueFrameAndSendNow(out, n, policy.priority, 0);
         return;
     }
@@ -331,9 +356,7 @@ void Log::PrintColoredLog(LogChannel channel, const char* fmt, va_list ap)
     uint8_t  nargs = 0;
     BuildRecordFromVaList(fmt, ap, args, &nargs);
     QueueLogRecord(fmt, channel, 0, policy.ansi_color, args, nargs);
-    unsigned key = irq_lock();
-    if (!pump_.Sending() && pump_.Channel() != nullptr) k_sem_give(&pump_.Channel()->sem_);
-    irq_unlock(key);
+    WakeShell();                              // irq_lock + k_sem_give 唤醒 shell 线程
 }
 ```
 
@@ -350,9 +373,11 @@ DBG 流的输出形态**按名字**独立配置，默认上色。
 
 ```
 DUST_LOG_DBG("name", ...)
-  → LogEntry::vofa（按名字，log mode <name> on|off 切换）
-  → 入队时快照为 LogRecord::ansi = !vofa
-  → shell 线程 FormatOnePendingRecord → WrapOutputFrame(policy.prefix, r->ansi, r->color, ...)
+  → logproc::Debug
+      → PassDivisor(e) 分频过滤（每 N 条放行 1 条）
+      → LogEntry::vofa（按名字，log mode <name> on|off 切换）
+      → 入队时快照为 LogRecord::ansi = !vofa
+  → shell 线程 ExpandOneRecord → Wrap(policy, text, out, cap)
 ```
 
 - **快照而非引用**：模式在入队时定死进 `LogRecord::ansi`，出队时不再查条目。
@@ -378,7 +403,7 @@ DUST_LOG_DBG("name", ...)
 
 #### TxFrameQueue：帧池 + 三档优先级队列
 
-真正的帧池分配、池满挤出、优先级插队都在 `TxFrameQueue` 内部完成（[log_queue.hpp](log/log_queue.hpp)）：
+真正的帧池分配、池满挤出、优先级插队都在 `TxFrameQueue` 内部完成（[log_queue.hpp](log/queue/log_queue.hpp)）：
 
 ```cpp
 bool PushFrameLocked(const char* data, int len, TxPriority prio, uint16_t epoch, bool allow_evict);
@@ -400,7 +425,7 @@ bool PushFrameLocked(const char* data, int len, TxPriority prio, uint16_t epoch,
 - 优先挤 DBG，其次 Cmd（两者 `may_be_evicted = true`）。被挤掉的帧直接复用为新帧。
 - 新优先级只需改**策略表**，不用改这个函数。
 
-#### LogTransport：发送泵（[log_transport.hpp](log/log_transport.hpp)）
+#### LogTransport：发送泵（[log_transport.hpp](log/transport/log_transport.hpp)）
 
 ```cpp
 class LogTransport
@@ -436,7 +461,7 @@ TxFrame*   PopNextFrameLocked(uint16_t active_epoch);    // 帧：同上
 - DBG 记录/帧在创建时携带当时的 epoch；出队时与 `dbg_.ActiveEpoch()` 不一致就丢弃。
 - 好处：DBG 控制层**不需要知道队列内部结构**，切换零遍历。代价是最多残留「已在 DMA 中的一帧」无法取消（可接受）。
 
-### 3.8 参数快照与格式化（[log_record.hpp](log/log_record.hpp)）
+### 3.8 参数快照与格式化（[log_record.hpp](log/queue/log_record.hpp)）
 
 **目标**：异步段调用点（可能 ISR）连 vsnprintf 都不做，只把 `fmt + 参数值` 快照入队，格式化在 shell 线程。
 
@@ -465,19 +490,23 @@ inline size_t FormatRecordToText(const LogRecord& r, char* text, size_t text_siz
 - **不含前缀/颜色/行尾**，只管正文。
 - **`%s` 约束**：快照存指针，延迟格式化要求指针仍有效——**只许字符串字面量**（静态存储期）。临时栈 `char buf[]` 传入会读野指针（最高风险，文档约束 + review 把关）。
 
-#### WrapOutputFrame：行包装
+#### Wrap：行包装（已从记录层移到 ② 加工层）
 
 ```cpp
-inline int WrapOutputFrame(const char* prefix, bool ansi_color, LogColor color,
-                           const char* text, char* out, size_t out_size);
+// process/log_process.cpp
+int Wrap(const LogChannelPolicy& policy, const char* text, char* out, size_t cap);
 ```
 
-`ansi_color=false` → `prefix + text + \r\n`；`true` → `\x1b[38;2;R;G;Bm` + `prefix + text` + `\x1b[0m\r\n`。
+`policy.ansi_color=false` → `prefix + text + \r\n`；`true` → `\x1b[38;2;R;G;Bm` + `prefix + text` + `\x1b[0m\r\n`。
+
+**为什么在加工层**：帧包装是「把文本变成可发送字节」的最后一环，属于加工职责；
+`log_record.hpp`（③ 队列层）现在只管记录结构与文本展开。
 
 #### 消费端（shell 线程）
 
 ```cpp
-bool Log::FormatOnePendingRecord()
+// process/log_process.cpp
+bool ExpandOneRecord()
 {
     unsigned key = irq_lock();
     LogRecord* r = recq_.PopNextRecordLocked(dbg_.ActiveEpoch());   // 作废记录跳过回收
@@ -489,7 +518,7 @@ bool Log::FormatOnePendingRecord()
 
     const LogChannelPolicy& policy = GetLogChannelPolicy(r->channel);
     char out[kLogBufSize + kColorOutExtra];
-    int n = WrapOutputFrame(policy.prefix, r->ansi, r->color, text, out, sizeof(out));
+    int n = Wrap(policy, text, out, sizeof(out));
     if (n > 0) QueueFrameForShellSend(out, n, r->prio, r->epoch);
 
     key = irq_lock();
@@ -501,7 +530,7 @@ bool Log::FormatOnePendingRecord()
 
 ### 3.9 并发保护
 
-队列共享状态被**任务上下文**（各 `PrintXxx` / `SendCommandLine` / `PrintSelectedDebug` / `QueueLogRecord`）与 **ISR 上下文**（`HandleTxDone` / ISR 中的 `QueueLogRecord`）同时访问：
+队列共享状态被**任务上下文**（`logproc::Info/Error/Ok/Warning` / `CommandLine` / `Debug` / `QueueLogRecord`）与 **ISR 上下文**（`HandleTxDone` / ISR 中的 `QueueLogRecord`）同时访问：
 
 | 入口 | 锁 | 说明 |
 |------|----|------|
@@ -510,10 +539,10 @@ bool Log::FormatOnePendingRecord()
 | `QueueFrameForShellSend` | `irq_lock` | 入帧池 + give 锁内 |
 | `SendNextFrameIfIdle` | `irq_lock` | `PumpTxQueue` 锁内 |
 | `HandleTxDone` | `irq_lock`（Transport 内） | 清 `sending_`；give 在锁外 |
-| `FormatOnePendingRecord` | `irq_lock`（出队/归还） | 格式化在锁外；记录格式化后才归还 |
+| `ExpandOneRecord` | `irq_lock`（出队/归还） | 格式化在锁外；记录格式化后才归还 |
 | `Select` / `Deselect` | 无（只动注册表） | 作废靠出队 epoch 比对，不再遍历队列 |
 
-加锁点集中在**入口**，内部 helper（`*Locked` / `PumpTxQueue`）只在锁内被调用，`FormatRecordToText` / `WrapOutputFrame` 不持锁。
+加锁点集中在**入口**，内部 helper（`*Locked` / `PumpTxQueue`）只在锁内被调用，`FormatRecordToText` / `Wrap` 不持锁。
 
 ### 3.10 初始化生命周期
 
@@ -534,18 +563,45 @@ shell thread_start（PreThread 阶段）
 
 `Log::Init()` 之后任何上下文（含 main 的 System_Startup、ISR）都能安全调用 DUST_LOG_*。
 
-### 3.11 log 命令
+### 3.11 log 命令（① 命令层）
+
+分派走 `DispatchSubCmd`（[token.hpp](token.hpp)）——**词法解析 + 查表匹配**，不是 if/else 链：
+
+```cpp
+// cmd/log_cmd.cpp
+static constexpr SubCmdEntry kSubCmds[] = {
+    { "list", CmdList }, { "on", CmdOn }, { "off", CmdOff }, { "mode", CmdMode },
+};
+DispatchSubCmd(line, kSubCmds, sizeof(kSubCmds)/sizeof(kSubCmds[0]), &CmdUsage);
+```
 
 ```
-log list                遍历条目，输出 "名字 [ON]/[off] [vofa]/[color]"
-log on <name>           Select → "log on: ok" / "log on: not found"
+log list                遍历条目 → "名字 [ON]/[off] [vofa]/[color] xN"
+log on <name> [N]       选中 + 可选分频 → "log on: ok x10" / "log on: not found"
 log off                 Deselect → "log off: ok"
 log mode <name> on|off  设置输出模式 → "log mode: vofa" / "log mode: color" / "log mode: not found"
                         （on/vofa 同义 = 纯文本；off/color 同义 = 上色）
-log <其他>              "?: log list|on <name>|off|mode <name> on|off"
+log <其他>              usage 一行
 ```
 
-`log mode` 的名字必须已注册（`DUST_LOG_DBG("name", ...)` 出现过），否则回 `not found`，不创建幽灵条目。
+**`log on <name> N` 分频**：N=每 N 条打印 1 条（默认 1=不分频）。实现是**递减配额**，不用取余：
+
+```cpp
+// process/log_process.cpp  PassDivisor
+const atomic_val_t divisor = atomic_get(&e->divisor);
+if (divisor <= 1) return true;                  // 不分频：短路，零开销
+if (atomic_dec(&e->quota) > 0) return false;    // 还有配额：丢弃
+atomic_set(&e->quota, divisor - 1);             // 配额用尽：放行并重填
+```
+
+- `Select` 时 `quota = 0` → **第一条立即可见**
+- `quota` 值域锁在 `0 ~ divisor-1`，**永不溢出**
+- `divisor` / `quota` 都是 `atomic_t`（任务写、ISR 读）
+- 每 N 条算一次 `atomic_dec`，比取余（RV32 `rem` 几十周期）快一个量级
+
+**占位说明**：分频判断在 `va_start` **之前**——被丢弃的调用不做参数快照、不入队、不碰 `irq_lock`。1kHz 高频 DBG 下这是主要收益。
+
+`log mode` / `log on` 的名字必须已注册（`DUST_LOG_DBG("name", ...)` 出现过），否则回 `not found`，不创建幽灵条目。
 
 ---
 
@@ -656,7 +712,7 @@ void Shell::Task()
 
 **线程是日志发送的驱动 + 接收处理**：
 1. `sem_` 从"接收通知信号量"升级为**"通道事件信号量"**（接收数据 OR 日志发送需要驱动）。
-2. 唤醒后**先 `SendNextFrameIfIdle()`** 泵日志帧，再通过 **`FormatOnePendingRecord()`** 展开异步段参数快照，最后才 `Read` 接收数据。
+2. 唤醒后**先 `SendNextFrameIfIdle()`** 泵日志帧，再通过 **`FormatOnePendingRecord()`**（转发 `logproc::ExpandOneRecord`）展开异步段参数快照，最后才 `Read` 接收数据。
 3. `sem_` 是 limit=1 计数信号量，接收/发送一起 give 会合并成一次唤醒——但安全：一次唤醒顺序执行全部处理，**数据不依赖 sem_ 计数**（接收数据在 Stream 缓冲、日志帧在队列，sem_ 只是"醒来处理"通知）。
 4. **前提**：shell 线程是 `stream_` 的**唯一消费者**（remote/gimbal 各自持有自己的 Stream 实例，不共享）。
 
@@ -774,20 +830,22 @@ Shell::ProcessLine(line)
   └── 未匹配 → "unknown command"
 ```
 
-**各族的 handler 收到的是「命令名之后」的原始串**，参数怎么切由族自己决定：
+**各族的 handler 收到的是「命令名之后」的原始串**，参数怎么切由族自己决定。
+
+**族内二级分派统一走 `DispatchSubCmd`**（词法解析 + 查表匹配，不写 if/else 链）：
 
 ```cpp
+// var.cpp
+static constexpr SubCmdEntry kSubCmds[] = {
+    { "list", Var::CmdListSub }, { "get", Var::CmdGetSub }, { "set", Var::CmdSetSub },
+};
 void Var::Process(uint8_t *line)
 {
-    const char* sub = nullptr;
-    line = NextToken(line, sub);       // 取子命令
-
-    if (std::strcmp(sub, "get") == 0) {
-        CmdGet(reinterpret_cast<const char*>(line));
-    }
-    ...
+    DispatchSubCmd(line, kSubCmds, sizeof(kSubCmds)/sizeof(kSubCmds[0]), &Var::CmdUsage);
 }
 ```
+
+三个命令族（`log` / `var` / `thread`）都是这个形状：**表 + 8 行**，加子命令 = 表里加一行 + 写一个函数。
 
 ### 6.6 帮助自动生成
 
@@ -819,7 +877,7 @@ h        help
 boot     boot timing
 thread   thread list|show|pause|resume|exit|reset
 var      var list|get|set
-log      log list|on|off|mode
+log      log list|on <name> [N]|off|mode
 ```
 
 **顺序由链接器决定**，不是注册的书写顺序。当前 5 条命令怎么排都看得清，
@@ -842,13 +900,17 @@ inline uint8_t* NextToken(uint8_t* line, const char*& out);
 ```text
 ① 新建 xxx_cmd.hpp / xxx_cmd.cpp（或写进已有文件）
 ② 实现 void XxxCmd::Process(uint8_t* line)
-      - NextToken 取子命令
-      - 未知子命令输出用法提示（不带 ?: 前缀）
+      - 定义 static constexpr SubCmdEntry kSubCmds[]
+      - DispatchSubCmd(line, kSubCmds, n, &XxxCmd::CmdUsage)
+      - 每个子命令一个 static void CmdXxxSub(uint8_t* args)
+      - 未知子命令走 CmdUsage，输出用法提示（不带 ?: 前缀）
 ③ 文件末尾写 REGISTER_SHELL_CMD("xxx", "xxx ...", XxxCmd::Process, xxx);
-④ framework/cmd/CMakeLists.txt 的 DUST_CMD_SHELL 块加源文件（若是新 .cpp）
+④ framework/shell/CMakeLists.txt 的 DUST_CMD_SHELL 块加源文件（若是新 .cpp）
 ```
 
 **不需要改 `shell.cpp`，不需要改帮助列表。**
+
+**命名**：`namespace shell` 下平铺（不用 `namespace log` / `namespace var`，避免与 C 库函数撞名）。
 
 ---
 
@@ -1001,7 +1063,7 @@ K_min = max(1, B - 1)       给定突发需求 B 所需最少帧数
 ## 11. FAQ
 
 **Q：DUST_LOG 打印依赖线程吗？**
-A：**分时段**。boot 早期（`shell_own_=false`）调用点直发，不依赖线程；shell 线程启动（`PreThread`，`MarkShellThreadReady`）接管后走异步，依赖 shell 线程 `FormatOnePendingRecord()` 展开快照 + `SendNextFrameIfIdle()` 驱动 DMA。唯一前置是 `Log::Init()` / `Log::BindOutputStream()` 已执行（`dbg_init`，PreInit 阶段）。
+A：**分时段**。boot 早期（`shell_own_=false`）调用点直发，不依赖线程；shell 线程启动（`PreThread`，`MarkShellThreadReady`）接管后走异步，依赖 shell 线程 `ExpandOneRecord()` 展开快照 + `SendNextFrameIfIdle()` 驱动 DMA。唯一前置是 `Log::Init()` / `Log::BindOutputStream()` 已执行（`dbg_init`，PreInit 阶段）。
 
 **Q：异步段调用点（ISR）会做什么？**
 A：`BuildRecordFromVaList`（扫 fmt + va_arg，~µs 级）+ `QueueLogRecord`（短临界区入队）+ give。**无 vsnprintf、无 DMA 提交、无链表遍历挤帧**。
@@ -1031,7 +1093,7 @@ A：`log on <name>` 决定**打不打**（选中/静默），`log mode <name> on
 A：靠**选择代数（epoch）**。注册表每次 Select/Deselect 递增 `epoch_`，DBG 记录/帧携带创建时的 epoch，出队时与当前值不一致就回收丢弃。不需要遍历队列打作废标记；代价是最多残留一帧「已在 DMA 中」的旧帧（无法取消，可接受）。
 
 **Q：新增一个日志优先级/通道要改几处？**
-A：三处表驱动，不碰逻辑：①`LogChannel`/`TxPriority` 加枚举；②`kLogChannelPolicies` 加一行（颜色/前缀/ANSI/优先级）；③必要时 `kTxPriorityPolicies` 加一行（池满挤出策略）。`EvictLowestPriorityFrameLocked` / `WrapOutputFrame` 等实现不用动。
+A：三处表驱动，不碰逻辑：①`LogChannel`/`TxPriority` 加枚举；②`kLogChannelPolicies` 加一行（颜色/前缀/ANSI/优先级）；③必要时 `kTxPriorityPolicies` 加一行（池满挤出策略）。`EvictLowestPriorityFrameLocked` / `Wrap` 等实现不用动。
 
 **Q：为什么 `log on` 不存在的名字回 not found？**
 A：`Select` 只选中**已存在**条目（`DUST_LOG_DBG("name",...)` 注册过的）。用 FindOrCreate 会凭空创建幽灵条目——已修复。`log mode` 同理。

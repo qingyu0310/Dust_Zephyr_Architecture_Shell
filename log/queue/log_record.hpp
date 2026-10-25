@@ -1,9 +1,9 @@
 /**
  * @file log_record.hpp
  * @author qingyu
- * @brief DUST_LOG 记录快照与格式化 — 参数快照/文本展开/行包装
+ * @brief [③ 队列层 · 记录结构] DUST_LOG 记录快照与格式化 — 参数快照/文本展开/行包装
  * @version 0.3
- * @date 2026-10-05
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -20,7 +20,7 @@
 #include <cstring>
 #include "log_policy.hpp"
 
-namespace debug {
+namespace shell {
 
 constexpr uint16_t kLogBufSize    = 256;		// 格式化缓冲：可变参数展开目标（超 255 截断）
 constexpr uint16_t kColorOutExtra = 16;			// 颜色输出缓冲额外预留（ANSI 转义 + \r\n）
@@ -203,28 +203,6 @@ inline size_t FormatRecordToText(const LogRecord& r, char* text, size_t text_siz
     return pos;
 }
 
-/**
- * @brief 文本包装为待发内容：前缀 + ANSI 颜色 + 行尾（\r\n）
- *
- * ansi_color=false 时纯文本（DBG/命令响应）——兼容 VOFA+ FireWater；
- * ANSI 转义串 \x1b[38;2;R;G;Bm 里的数字会被 VOFA+ 误解析成通道数据。
- *
- * @param prefix     行首前缀
- * @param ansi_color 是否上 ANSI 颜色（DBG 按条目模式，其余取通道策略）
- * @param color      ANSI 颜色（ansi_color=true 时使用）
- * @param text       已展开文本
- * @param out        输出：待发内容
- * @param out_size   输出缓冲大小
- * @return 待发内容长度；<=0 表示失败
- */
-inline int WrapOutputFrame(const char* prefix, bool ansi_color, LogColor color, const char* text, char* out, size_t out_size)
-{
-    if (!ansi_color) return snprintf(out, out_size, "%s%s\r\n", prefix, text);
-
-    const uint32_t rgb = static_cast<uint32_t>(color);
-    return snprintf(out, out_size, "\x1b[38;2;%d;%d;%dm%s%s\x1b[0m\r\n", (rgb >> 16) & 0xFF, (rgb >> 8) & 0xFF, rgb & 0xFF, prefix, text);
-}
-
-} // namespace debug
+} // namespace shell
 
 #endif

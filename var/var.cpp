@@ -2,8 +2,8 @@
  * @file var.cpp
  * @author qingyu
  * @brief var 命令实现 — var list/get/set（输出走 DUST_LOG 命令响应）
- * @version 0.2
- * @date 2026-10-20
+ * @version 0.3
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -19,10 +19,10 @@
 
 #pragma message "Compiling Cmd/Shell/Var"
 
-extern const debug::Entry __shell_var_start[];
-extern const debug::Entry __shell_var_end[];
+extern const shell::Entry __shell_var_start[];
+extern const shell::Entry __shell_var_end[];
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 遍历链接段查找匹配名称的注册条目
@@ -226,35 +226,69 @@ void Var::CmdSet(const char *name, const char *val)
  */
 void Var::Process(uint8_t *line)
 {
-    const char* sub = nullptr;
-    line = NextToken(line, sub);
+    static constexpr SubCmdEntry kSubCmds[] = {
+        { "list", Var::CmdListSub },
+        { "get",  Var::CmdGetSub  },
+        { "set",  Var::CmdSetSub  },
+    };
 
-    if (std::strcmp(sub, "list") == 0)
-    {
-        CmdList();
-    }
-    else if (std::strcmp(sub, "get") == 0)
-    {
-        if (*line == '\0') { Log::SendCommandLine("usage: var get <name>"); return; }
-        CmdGet(reinterpret_cast<const char*>(line));
-    }
-    else if (std::strcmp(sub, "set") == 0)
-    {
-        const char* name = nullptr;
-        line = NextToken(line, name);
+    DispatchSubCmd(line, kSubCmds, sizeof(kSubCmds) / sizeof(kSubCmds[0]), &Var::CmdUsage);
+}
 
-        if (*name == '\0' || *line == '\0') {
-            Log::SendCommandLine("usage: var set <name> <value>");
-            return;
-        }
-        CmdSet(name, reinterpret_cast<const char*>(line));
+/**
+ * @brief var list：遍历 .shell_var 段输出
+ * @param args 未使用
+ */
+void Var::CmdListSub(uint8_t* args)
+{
+    (void)args;
+    CmdList();
+}
+
+/**
+ * @brief var get <name>：输出单变量值
+ * @param args 剩余行（"<name>"）
+ */
+void Var::CmdGetSub(uint8_t* args)
+{
+    const char* name = nullptr;
+    NextToken(args, name);
+
+    if (*name == '\0') {
+        Log::SendCommandLine("usage: var get <name>");
+        return;
     }
-    else
-    {
-        Log::SendCommandLine("var list|get <name>|set <name> <val>");
+
+    CmdGet(name);
+}
+
+/**
+ * @brief var set <name> <val>：解析并写值
+ * @param args 剩余行（"<name> <val>"）
+ */
+void Var::CmdSetSub(uint8_t* args)
+{
+    const char* name = nullptr;
+    uint8_t* rest = NextToken(args, name);
+
+    if (*name == '\0' || *rest == '\0') {
+        Log::SendCommandLine("usage: var set <name> <value>");
+        return;
     }
+
+    CmdSet(name, reinterpret_cast<const char*>(rest));
+}
+
+/**
+ * @brief 未命中子命令：打印 usage
+ * @param args 未使用
+ */
+void Var::CmdUsage(uint8_t* args)
+{
+    (void)args;
+    Log::SendCommandLine("var list|get <name>|set <name> <val>");
 }
 
 REGISTER_SHELL_CMD("var", "var list|get|set", Var::Process, var);
 
-} // namespace debug
+} // namespace shell

@@ -19,7 +19,7 @@
 
 #pragma message "Compiling Cmd/Shell/Boot_cmd"
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 输出一行耗时（毫秒，保留三位小数）
@@ -99,4 +99,4 @@ void BootCmd::Process(uint8_t* line)
 
 REGISTER_SHELL_CMD("boot", "boot timing", BootCmd::Process, boot);
 
-} // namespace debug
+} // namespace shell

@@ -15,7 +15,7 @@
 
 #include <cstdint>
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief boot 命令（timing）
@@ -29,6 +29,6 @@ private:
     static void CmdTiming();                   // boot timing：按耗时降序列出启动项
 };
 
-} // namespace debug
+} // namespace shell
 
 #endif

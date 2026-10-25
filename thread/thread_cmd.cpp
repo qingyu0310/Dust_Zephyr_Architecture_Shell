@@ -2,8 +2,8 @@
  * @file thread_cmd.cpp
  * @author qingyu
  * @brief thread 命令实现 — list/show/pause/resume/reset（输出走 DUST_LOG 命令响应）
- * @version 0.4
- * @date 2026-10-23
+ * @version 0.5
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -20,7 +20,7 @@
 
 #pragma message "Compiling Cmd/Shell/Thread_cmd"
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 线程状态字符串
@@ -211,41 +211,83 @@ void ThreadCmd::CmdReset(const char* name)
  */
 void ThreadCmd::Process(uint8_t* line)
 {
-    const char* sub = nullptr;
-    line = NextToken(line, sub);
+    static constexpr SubCmdEntry kSubCmds[] = {
+        { "list",   ThreadCmd::CmdListSub   },
+        { "show",   ThreadCmd::CmdShowSub   },
+        { "pause",  ThreadCmd::CmdPauseSub  },
+        { "resume", ThreadCmd::CmdResumeSub },
+        { "exit",   ThreadCmd::CmdExitSub   },
+        { "reset",  ThreadCmd::CmdResetSub  },
+    };
 
-    const char* arg = reinterpret_cast<const char*>(line);
+    DispatchSubCmd(line, kSubCmds, sizeof(kSubCmds) / sizeof(kSubCmds[0]), &ThreadCmd::CmdUsage);
+}
 
-    if (std::strcmp(sub, "list") == 0)
-    {
-        CmdList();
-    }
-    else if (std::strcmp(sub, "show") == 0)
-    {
-        CmdShow(arg);
-    }
-    else if (std::strcmp(sub, "pause") == 0)
-    {
-        CmdPause(arg);
-    }
-    else if (std::strcmp(sub, "resume") == 0)
-    {
-        CmdResume(arg);
-    }
-    else if (std::strcmp(sub, "exit") == 0)
-    {
-        CmdExit(arg);
-    }
-    else if (std::strcmp(sub, "reset") == 0)
-    {
-        CmdReset(arg);
-    }
-    else
-    {
-        Log::SendCommandLine("thread list|show|pause|resume|exit|reset <name>");
-    }
+/**
+ * @brief thread list：遍历注册表，每个线程一行
+ * @param args 未使用
+ */
+void ThreadCmd::CmdListSub(uint8_t* args)
+{
+    (void)args;
+    CmdList();
+}
+
+/**
+ * @brief thread show <name>：单线程详细统计
+ * @param args 剩余行（"<name>"）
+ */
+void ThreadCmd::CmdShowSub(uint8_t* args)
+{
+    CmdShow(reinterpret_cast<const char*>(args));
+}
+
+/**
+ * @brief thread pause <name>：暂停线程
+ * @param args 剩余行（"<name>"）
+ */
+void ThreadCmd::CmdPauseSub(uint8_t* args)
+{
+    CmdPause(reinterpret_cast<const char*>(args));
+}
+
+/**
+ * @brief thread resume <name>：恢复线程
+ * @param args 剩余行（"<name>"）
+ */
+void ThreadCmd::CmdResumeSub(uint8_t* args)
+{
+    CmdResume(reinterpret_cast<const char*>(args));
+}
+
+/**
+ * @brief thread exit <name>：终止线程
+ * @param args 剩余行（"<name>"）
+ */
+void ThreadCmd::CmdExitSub(uint8_t* args)
+{
+    CmdExit(reinterpret_cast<const char*>(args));
+}
+
+/**
+ * @brief thread reset <name>：清零线程计数器
+ * @param args 剩余行（"<name>"）
+ */
+void ThreadCmd::CmdResetSub(uint8_t* args)
+{
+    CmdReset(reinterpret_cast<const char*>(args));
+}
+
+/**
+ * @brief 未命中子命令：打印 usage
+ * @param args 未使用
+ */
+void ThreadCmd::CmdUsage(uint8_t* args)
+{
+    (void)args;
+    Log::SendCommandLine("thread list|show|pause|resume|exit|reset <name>");
 }
 
 REGISTER_SHELL_CMD("thread", "thread list|show|pause|resume|exit|reset", ThreadCmd::Process, thread);
 
-} // namespace debug
+} // namespace shell

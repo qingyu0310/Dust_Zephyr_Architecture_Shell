@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief shell 命令族注册项
@@ -27,17 +27,17 @@ struct ShellCmdEntry
     const char* help;                    // 帮助摘要（一行）
 };
 
-} // namespace debug
+} // namespace shell
 
 // 链接脚本导出的段边界（dust_init.ld，C 链接符号）
 extern "C" {
 
-extern const ::debug::ShellCmdEntry __shell_cmd_start[];
-extern const ::debug::ShellCmdEntry __shell_cmd_end[];
+extern const ::shell::ShellCmdEntry __shell_cmd_start[];
+extern const ::shell::ShellCmdEntry __shell_cmd_end[];
 
 }
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 命令表起始
@@ -70,9 +70,9 @@ inline const ShellCmdEntry* ShellCmdEnd()
  * @param ident_   注册项标识（唯一标识符，通常用命令族名）
  */
 #define REGISTER_SHELL_CMD(name_, help_, handler_, ident_)                      \
-    static const ::debug::ShellCmdEntry kShellCmd_##ident_                      \
+    static const ::shell::ShellCmdEntry kShellCmd_##ident_                      \
         __attribute__((used, __section__(".shell_cmd"))) = {                    \
         name_, handler_, help_                                                  \
     }
 
-} // namespace debug
+} // namespace shell

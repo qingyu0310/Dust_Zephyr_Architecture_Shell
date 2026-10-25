@@ -2,8 +2,8 @@
  * @file var.hpp
  * @author qingyu
  * @brief 调试变量注册与 var 命令 — 链接段收集 + var list/get/set
- * @version 0.2
- * @date 2026-10-24
+ * @version 0.4
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -16,7 +16,7 @@
 #include <cstdint>
 #include <zephyr/toolchain.h>   // _CONCAT：宏内拼接 __COUNTER__ 需要两层展开
 
-namespace debug {
+namespace shell {
 
 enum class VarType : uint8_t
 {
@@ -76,6 +76,11 @@ private:
     static void CmdSet(const char *name, const char *val);  // var set：解析并写值
     static void PrintVar(const Entry &e);
     static void PrintValueOnly(const Entry &e);
+
+    static void CmdListSub(uint8_t *args);       // 分派入口：var list
+    static void CmdGetSub(uint8_t *args);        // 分派入口：var get <name>
+    static void CmdSetSub(uint8_t *args);        // 分派入口：var set <name> <val>
+    static void CmdUsage(uint8_t *args);         // 未命中子命令：打印 usage
 };
 
 template<typename T>
@@ -115,16 +120,16 @@ template<> struct TypeMap<bool>     { static constexpr auto type = VarType::Bool
  * @endcode
  */
 #define REGISTER_SHELL_VAR(name_, var_)                                                   \
-    static ::debug::Entry _CONCAT(s_shell_var_, __COUNTER__)                              \
+    static ::shell::Entry _CONCAT(s_shell_var_, __COUNTER__)                              \
         __attribute__((used, section(".shell_var"), aligned(sizeof(void*)))) = {          \
         .name = (name_),                                                                  \
-        .type = ::debug::TypeMap<decltype(var_)>::type,                                   \
+        .type = ::shell::TypeMap<decltype(var_)>::type,                                   \
         .ptr  = static_cast<void*>(&(var_)),                                              \
     };                                                                                    \
-    static_assert(sizeof(var_) <= sizeof(::debug::VarValue),                              \
+    static_assert(sizeof(var_) <= sizeof(::shell::VarValue),                              \
                   "shell var \"" name_ "\" is too large for VarValue")
 
-} // namespace debug
+} // namespace shell
 
 #else
 

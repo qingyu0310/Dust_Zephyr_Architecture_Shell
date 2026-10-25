@@ -21,7 +21,7 @@
 
 #pragma message "Compiling Cmd/Shell/"
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 绑定 UART DMA 实例，初始化完成
@@ -183,7 +183,7 @@ static bool thread_start()
     return true;
 }
 
-REGISTER_INIT(thread_init,  PreInit, High, HaltOnFail, nullptr, "dbg_init");
+REGISTER_INIT(thread_init, PreInit, High, HaltOnFail, nullptr, "dbg_init");
 REGISTER_THREAD(thread_start, PreThread, HaltOnFail, "dbg_start");
 
-} // namespace debug
+} // namespace shell

@@ -18,7 +18,7 @@
 #include "stream.hpp"
 #include "thread.hpp"
 
-namespace debug
+namespace shell
 {
 
 /**
@@ -36,8 +36,7 @@ public:
     void Start(ThreadPrio prio = ThreadPrio::Lowest)
     {
         // shell 是日志唯一消费者与停机后的观察窗口：Recover 全杀时保留
-        thread_.Start(TaskEntry, K_NO_WAIT, prio, this, "shell",
-                      ThreadFaultConfig{ nullptr, nullptr, ThreadFaultPolicy::Recover, true });
+        thread_.Start(TaskEntry, K_NO_WAIT, prio, this, "shell", ThreadFaultConfig{ nullptr, nullptr, ThreadFaultPolicy::Recover, true });
     }
 
     /**
@@ -55,9 +54,9 @@ public:
 private:
     static constexpr size_t kLineBufSize = 128;
 
-    Stream       *stream_   = nullptr;
-    uint8_t       line_buf_[kLineBufSize]{};
-    uint32_t      line_pos_ = 0;
+    Stream  	 *stream_   = nullptr;
+    uint8_t  	  line_buf_[kLineBufSize]{};
+    uint32_t 	  line_pos_ = 0;
     Thread<2048>  thread_   {};
 
     void ProcessLine(uint8_t *line);
@@ -69,6 +68,6 @@ private:
     }
 };
 
-} // namespace debug
+} // namespace shell
 
 #endif

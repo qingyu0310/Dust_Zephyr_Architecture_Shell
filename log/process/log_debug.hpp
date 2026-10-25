@@ -1,9 +1,9 @@
 /**
  * @file log_debug.hpp
  * @author qingyu
- * @brief DUST_LOG DBG 源注册表 — 名字注册/选中/遍历
- * @version 0.4
- * @date 2026-10-05
+ * @brief [② 加工层 · DBG 注册表] DUST_LOG DBG 源注册表 — 名字注册/选中/遍历
+ * @version 0.5
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -16,8 +16,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#include <zephyr/sys/atomic.h>
 
-namespace debug {
+namespace shell {
 
 constexpr uint8_t kMaxLogEntries = 64;			// DBG 条目数上限
 
@@ -28,6 +29,8 @@ struct LogEntry
 {
     const char* name;   						// DBG 名字（log on 用，运行时 FindOrCreate 创建）
     bool        vofa;   						// 输出模式：false=上色（默认）/ true=VOFA+ 纯文本
+    atomic_t    divisor;						// 分频周期：1=不分频，N=每 N 条打 1 条（任务写 / ISR 读）
+    atomic_t    quota;  						// 剩余可丢条数（0=本次放行；任务写 / ISR 改）
 };
 
 /**
@@ -61,11 +64,14 @@ public:
             if (std::strcmp(entries_[i].name, name) == 0) return &entries_[i];
         }
 
-        if (count_ >= kMaxLogEntries) return nullptr;   // 池满：无法创建，返回 nullptr
+        if (count_ >= kMaxLogEntries) return nullptr;   				// 池满：无法创建，返回 nullptr
 
         LogEntry* e = &entries_[count_++];
         e->name = name;
-        e->vofa = false;                                // 新条目默认上色
+        e->vofa = false;                                				// 新条目默认上色
+        atomic_set(&e->divisor, 1);                      // 默认不分频
+        atomic_clear(&e->quota);                       	 	   // 配额清零：下一条立即放行
+
         return e;
     }
 
@@ -75,17 +81,20 @@ public:
      * 只选中已存在的条目（代码里 DUST_LOG_DBG 注册过的名字），
      * 不存在返回 false，不创建幽灵条目。
      *
-     * @param name DBG 名字
+     * @param name    DBG 名字
+     * @param divisor 分频周期（1=不分频；0 按 1 处理）
      * @return true 选中成功；false 条目不存在
      */
-    bool Select(const char* name)
+    bool Select(const char* name, uint16_t divisor = 1)
     {
         for (uint8_t i = 0; i < count_; ++i)
         {
             if (std::strcmp(entries_[i].name, name) == 0)
             {
+                atomic_set(&entries_[i].divisor, (divisor == 0) ? 1 : divisor);
+                atomic_clear(&entries_[i].quota);         // 配额清零：下一条立即放行
                 active_ = &entries_[i];
-                ++epoch_;                                 // 选择代数递增：作废在途旧 DBG 记录/帧
+                ++epoch_;                                 		 // 选择代数递增：作废在途旧 DBG 记录/帧
                 return true;
             }
         }
@@ -116,8 +125,8 @@ public:
     }
 
     void Deselect()                { active_ = nullptr; ++epoch_; }   // 取消选中（代数递增作废在途）
-    const LogEntry* Active() const { return active_; }  	// 当前选中条目（nullptr=无）
-    uint16_t ActiveEpoch() const   { return epoch_; }   	// 当前选择代数（DBG 记录/帧携带比对）
+    const LogEntry* Active() const { return active_; }  			  // 当前选中条目（nullptr=无）
+    uint16_t ActiveEpoch() const   { return epoch_; }   			  // 当前选择代数（DBG 记录/帧携带比对）
 
     /**
      * @brief 遍历：数组首个条目
@@ -146,6 +155,6 @@ private:
     uint16_t  epoch_  = 0;                    	// 选择代数（Select/Deselect 递增，作废在途旧 DBG）
 };
 
-} // namespace debug
+} // namespace shell
 
 #endif

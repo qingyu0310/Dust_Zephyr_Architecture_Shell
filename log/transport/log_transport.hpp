@@ -1,9 +1,9 @@
 /**
  * @file log_transport.hpp
  * @author qingyu
- * @brief DUST_LOG 发送泵 — Stream 绑定 / DMA 空闲续发 / 发送完成回调
- * @version 0.1
- * @date 2026-10-05
+ * @brief [④ 发送层] DUST_LOG 发送泵 — Stream 绑定 / DMA 空闲续发 / 发送完成回调
+ * @version 0.2
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -17,7 +17,7 @@
 #include "stream.hpp"
 #include "log_queue.hpp"
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 发送泵
@@ -74,6 +74,6 @@ private:
     bool    sending_ = false;    	// 当前是否有帧在 DMA 中
 };
 
-} // namespace debug
+} // namespace shell
 
 #endif

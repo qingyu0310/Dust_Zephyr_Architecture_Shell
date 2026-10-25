@@ -1,9 +1,9 @@
 /**
  * @file log_policy.hpp
  * @author qingyu
- * @brief DUST_LOG 通道策略表 — 通道/颜色/前缀/ANSI/优先级集中定义
- * @version 0.3
- * @date 2026-10-05
+ * @brief [③ 队列层 · 通道策略表] DUST_LOG 通道策略表 — 通道/颜色/前缀/ANSI/优先级集中定义
+ * @version 0.4
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -13,7 +13,7 @@
 
 #include <cstdint>
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief 日志颜色（ANSI 前景色编码）
@@ -117,4 +117,4 @@ inline const TxPriorityPolicy& GetTxPriorityPolicy(TxPriority prio)
     return kTxPriorityPolicies[static_cast<uint8_t>(prio)];
 }
 
-} // namespace debug
+} // namespace shell

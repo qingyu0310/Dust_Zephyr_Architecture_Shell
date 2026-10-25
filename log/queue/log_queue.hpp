@@ -1,9 +1,9 @@
 /**
  * @file log_queue.hpp
  * @author qingyu
- * @brief DUST_LOG 发送队列 — 原始请求池 FIFO + 发送帧池三档优先级
- * @version 0.3
- * @date 2026-10-05
+ * @brief [③ 队列层] DUST_LOG 发送队列 — 原始请求池 FIFO + 发送帧池三档优先级
+ * @version 0.4
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -18,7 +18,7 @@
 #include "log_policy.hpp"
 #include "log_record.hpp"
 
-namespace debug {
+namespace shell {
 
 constexpr uint8_t  kNullIndex     = 255;		// 索引链表空值（255 = 无下一项）
 constexpr uint16_t kTxFrameSize   = 128;		// 发送帧数据区大小（含 \0 保险）
@@ -319,6 +319,6 @@ private:
     }
 };
 
-} // namespace debug
+} // namespace shell
 
 #endif

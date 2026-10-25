@@ -2,8 +2,8 @@
  * @file thread_cmd.hpp
  * @author qingyu
  * @brief thread 命令 — 线程运行统计查看与管理
- * @version 0.2
- * @date 2026-10-23
+ * @version 0.3
+ * @date 2026-10-25
  *
  * @copyright Copyright (c) 2026
  *
@@ -15,7 +15,7 @@
 
 #include <cstdint>
 
-namespace debug {
+namespace shell {
 
 /**
  * @brief thread 命令（list/show/pause/resume/exit/reset）
@@ -35,8 +35,16 @@ private:
     static void CmdResume(const char* name);   // thread resume：恢复线程
     static void CmdExit(const char* name);     // thread exit：终止线程
     static void CmdReset(const char* name);    // thread reset：清零计数器
+
+    static void CmdListSub(uint8_t* args);     // 分派入口：thread list
+    static void CmdShowSub(uint8_t* args);     // 分派入口：thread show <name>
+    static void CmdPauseSub(uint8_t* args);    // 分派入口：thread pause <name>
+    static void CmdResumeSub(uint8_t* args);   // 分派入口：thread resume <name>
+    static void CmdExitSub(uint8_t* args);     // 分派入口：thread exit <name>
+    static void CmdResetSub(uint8_t* args);    // 分派入口：thread reset <name>
+    static void CmdUsage(uint8_t* args);       // 未命中子命令：打印 usage
 };
 
-} // namespace debug
+} // namespace shell
 
 #endif
