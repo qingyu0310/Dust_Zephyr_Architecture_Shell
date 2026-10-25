@@ -28,6 +28,85 @@
 
 ## 1. 模块总览
 
+### 1.0 架构：两级「词法解析 + 查表匹配」
+
+整个调试台的命令分发是**两层同构的命令表架构**——两级都是「取首个 token → 查表匹配 → 交给 handler」，
+一级定位命令族，二级定位该族的子命令。**没有一处 if/else 链。**
+
+```text
+                    shell::ProcessLine(line)
+                          │
+                    ① NextToken 取首个 token = 命令族名
+                          │
+                    ② 遍历 .shell_cmd 链接段（编译期收集，非硬编码）
+                          │  strcmp(entry->name, cmd)
+                          ↓ 命中
+                    entry->handler(rest)         ← 剩余参数串原样交出
+                          │
+        ┌─────────────────┼──────────────────┬──────────────────┐
+        ↓                 ↓                  ↓                  ↓
+   Log::Process       Var::Process      ThreadCmd::Process   BootCmd::Process
+        │                 │                  │                  │
+   ③ NextToken 取子命令  ③ 同上            ③ 同上             ③ 同上
+        │                 │                  │                  │
+   ④ 遍历本地 SubCmdEntry[] 表（② 用同一套 DispatchSubCmd）
+        │
+        ↓ 命中
+    CmdOn(rest) / CmdList() / ...           ← 子命令处理函数
+```
+
+**两级都由同一套工具支撑**：
+
+| 级 | 匹配对象 | 表 | 工具 |
+|---|---|---|---|
+| 第一级（命令族） | `.shell_cmd` **链接段**（编译期收集，跨文件） | `ShellCmdEntry[]` | `Shell::ProcessLine` |
+| 第二级（子命令） | 各命令族自己的 **本地 `static constexpr` 表**（编译期常量，文件内） | `SubCmdEntry[]` | `DispatchSubCmd` |
+
+**两级的分工是有意义的**：
+
+- 第一级跨编译单元——`log/`、`var/`、`thread/`、`boot/` 各在自己的 `.cpp` 里 `REGISTER_SHELL_CMD`，
+  链接器把它们汇到 `.shell_cmd` 段，**新增命令族不用改 `shell.cpp`**
+- 第二级在文件内——子命令属于该族的私有知识，放在族自己的 `.cpp` 里，**新增子命令不用改分派逻辑**
+
+### 1.0.1 可扩展性：三处「加一行」
+
+| 要加什么 | 加在哪 | 改几行 |
+|---|---|---|
+| **新命令族**（如 `motor`） | 新建 `motor/motor_cmd.cpp`，末尾 `REGISTER_SHELL_CMD("motor", "...", ...)`；CMake 加源文件 | 2 处，**不动任何已有代码** |
+| **新子命令**（如 `log show`） | `log/cmd/log_cmd.cpp` 写一个 `CmdShow`，`kSubCmds[]` 加一行 | 2 处，**不动分派逻辑** |
+| **新日志通道** | `queue/log_policy.hpp` 的 `kLogChannelPolicies[]` 加一行 | 1 行，颜色/前缀/优先级自动生效 |
+
+**三个命令族（`log` / `var` / `thread`）现在是同一形状**，读一个就懂全部：
+
+```cpp
+static constexpr SubCmdEntry kSubCmds[] = {
+    { "list", CmdList }, { "on", CmdOn }, { "off", CmdOff }, { "mode", CmdMode },
+};
+void Process(uint8_t* line)
+{
+    DispatchSubCmd(line, kSubCmds, sizeof(kSubCmds)/sizeof(kSubCmds[0]), &CmdUsage);
+}
+```
+
+### 1.0.2 分层解耦
+
+**命令层与业务实现彻底分离**——命令层只认「字符串进、字符串出」，不碰任何业务状态：
+
+| 层 | 知道什么 | 不知道什么 |
+|---|---|---|
+| 命令层 `cmd/` | 子命令名、参数格式、`logproc::` 的公开函数 | 队列怎么排、帧怎么发、DBG 条目存在哪 |
+| 加工层 `process/` | 日志入口、分频、格式化、上色 | 命令怎么解析、谁调用了它 |
+| 队列层 `queue/` | 记录/帧的结构与存取 | 内容是什么、谁在消费 |
+| 发送层 `transport/` | 一个 `TxFrame&` 和 `Stream*` | 帧从哪来、优先级怎么定 |
+
+**约束不是靠自觉，是靠物理隔离**：
+
+- 四个实例（`dbg_` / `req_` / `txq_` / `pump_`）只在 `log_process.cpp` 里定义 → 命令层拿不到
+- 目录即约束：`cmd/` 里 `#include "log_queue.hpp"` 就是跨了两个目录，一眼违例
+- 单向流水线 `①→②→③→④`，唯一例外是 ④ 的 `HandleTxDone` 用信号量**异步唤醒**（不是调用）
+
+### 1.1 目录
+
 ```text
 shell/
 ├── shell.hpp / shell.cpp       底座：UART 线程 + 命令表分派 + 日志发送驱动

@@ -165,6 +165,9 @@ void ThreadCmd::CmdResume(const char* name)
 
 /**
  * @brief thread exit：终止线程（走 ExitHook → 注销注册表 → 打日志 → k_thread_abort）
+ *
+ * 带保留标记的线程（shell）拒绝终止。
+ *
  * @param name 线程名
  */
 void ThreadCmd::CmdExit(const char* name)
@@ -177,6 +180,11 @@ void ThreadCmd::CmdExit(const char* name)
     ThreadBase* t = thread_registry::Find(name);
     if (t == nullptr) {
         Log::SendCommandLine("thread exit: not found");
+        return;
+    }
+
+    if (t->KeepAlive()) {
+        Log::SendCommandLine("thread exit: reserved, refused");
         return;
     }
 

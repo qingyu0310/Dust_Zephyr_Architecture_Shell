@@ -52,15 +52,15 @@ void BootCmd::CmdTiming()
     }
 
     char head[64];
-    const uint32_t total_ms = static_cast<uint32_t>(BootTiming::TotalNs() / 1000000ULL);
-    snprintf(head, sizeof(head), "BOOT TIMING (total %u ms, %u items)", (unsigned)total_ms, (unsigned)count);
+    const double total_ms = static_cast<double>(BootTiming::TotalNs() / 1000000.0);
+    snprintf(head, sizeof(head), "BOOT TIMING (total %.3f ms, %u items)", total_ms, (unsigned)count);
     Log::SendCommandLine(head);
 
     uint32_t used = 0;   // 位图：已输出的槽
 
     for (uint8_t printed = 0; printed < count; ++printed)
     {
-        uint8_t best    = 0;
+        uint8_t  best    = 0;
         uint32_t best_ns = 0;
 
         for (uint8_t i = 0; i < count; ++i)
