@@ -90,34 +90,39 @@ void ThreadCmd::CmdShow(const char* name)
     snprintf(line, sizeof(line), "%s:", s.name);
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  state        %s", StateName(s));
+    snprintf(line, sizeof(line), "  %-14s %s", "state", StateName(s));
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  run          %u", (unsigned)s.run_count);
+    snprintf(line, sizeof(line), "  %-14s %u", "run", (unsigned)s.run_count);
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  retry        %u", (unsigned)s.retry_count);
+    snprintf(line, sizeof(line), "  %-14s %u", "retry", (unsigned)s.retry_count);
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  drop         %u", (unsigned)s.drop_count);
+    snprintf(line, sizeof(line), "  %-14s %u", "drop", (unsigned)s.drop_count);
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  last         %u.%03u ms",
-             (unsigned)(s.last_run_ns / 1000000ULL),
-             (unsigned)((s.last_run_ns / 1000ULL) % 1000ULL));
+    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "task last",
+             (unsigned)(s.last_run_ns / 1000ULL),
+             (unsigned)(s.last_run_ns % 1000ULL));
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  max          %u.%03u ms",
-             (unsigned)(s.max_run_ns / 1000000ULL),
-             (unsigned)((s.max_run_ns / 1000ULL) % 1000ULL));
+    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "task max",
+             (unsigned)(s.max_run_ns / 1000ULL),
+             (unsigned)(s.max_run_ns % 1000ULL));
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  total        %u.%03u ms",
-             (unsigned)(s.run_ns / 1000000ULL),
-             (unsigned)((s.run_ns / 1000ULL) % 1000ULL));
+    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "overhead last",
+             (unsigned)(s.last_overhead_ns / 1000ULL),
+             (unsigned)(s.last_overhead_ns % 1000ULL));
     Log::SendCommandLine(line);
 
-    snprintf(line, sizeof(line), "  stack        %u B unused", (unsigned)s.stack_unused);
+    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "overhead max",
+             (unsigned)(s.max_overhead_ns / 1000ULL),
+             (unsigned)(s.max_overhead_ns % 1000ULL));
+    Log::SendCommandLine(line);
+
+    snprintf(line, sizeof(line), "  %-14s %u B unused", "stack", (unsigned)s.stack_unused);
     Log::SendCommandLine(line);
 }
 
