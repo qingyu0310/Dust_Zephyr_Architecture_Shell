@@ -259,6 +259,25 @@ void Debug(LogEntry* e, const char* fmt, ...)
 }
 
 /**
+ * @brief 格式化后直接写串口，不进队列、不受 log 过滤
+ *
+ * 用于 HAL/驱动层这种拿不到 Log 门面、又需要立即出日志的位置。
+ * 走 Command 通道的策略（带 \r\n），与命令响应同一优先级。
+ */
+void Raw(const char* fmt, ...)
+{
+    char text[kLogBufSize];
+    va_list ap;
+
+    va_start(ap, fmt);
+    int n = vsnprintf(text, sizeof(text), fmt, ap);
+    va_end(ap);
+
+    if (n <= 0) return;
+    CommandLine(text);
+}
+
+/**
  * @brief 命令响应直发（不经过 log 过滤，带 \r\n，中档）
  * @param text 响应文本
  */

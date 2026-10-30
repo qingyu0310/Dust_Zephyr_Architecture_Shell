@@ -113,6 +113,12 @@ void Debug(LogEntry* e, const char* fmt, ...);
  */
 void CommandLine(const char* text);
 
+/**
+ * @brief 格式化后直接写串口，不进队列、不受 log 过滤
+ * @param fmt 格式化串
+ */
+void Raw(const char* fmt, ...);
+
 // ========== 加工原语 ==========
 
 /**

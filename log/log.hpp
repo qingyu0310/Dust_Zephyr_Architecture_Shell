@@ -131,6 +131,9 @@ public:
 #define DUST_LOG_OK(...)  ::shell::logproc::Ok(__VA_ARGS__)
 #define DUST_LOG_WRN(...) ::shell::logproc::Warning(__VA_ARGS__)
 
+// 直发：格式化后直接写串口，不进队列、不受 log 过滤
+#define DUST_LOG_RAW(...) ::shell::logproc::Raw(__VA_ARGS__)
+
 #else
 
 // ========== 关：空宏（调用点零开销，编译不报错）==========
@@ -140,5 +143,6 @@ public:
 #define DUST_LOG_ERR(...)
 #define DUST_LOG_OK(...)
 #define DUST_LOG_WRN(...)
+#define DUST_LOG_RAW(...)
 
 #endif
