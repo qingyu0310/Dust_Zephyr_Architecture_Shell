@@ -50,10 +50,17 @@ public:
         if (f == nullptr) return false;
 
         sending_ = true;
+
         if (stream_ == nullptr || !stream_->Send(reinterpret_cast<const uint8_t*>(f->data), f->len))
         {
-            sending_ = false;                           // 发送失败：不置发送中
+            sending_ = false;
+            queue.RequeueFrameLocked(f);                // 发送失败：帧放回队列，等下次重试
+
+            if (stream_ != nullptr) k_sem_give(&stream_->sem_);   // 必须唤醒：队列满时生产者不再唤醒，泵会永久停摆
+
+            return false;
         }
+
         queue.ReleaseFrameLocked(f);                    // 归还空闲池：帧内容已移交 UartDma，立即复用
         return true;
     }

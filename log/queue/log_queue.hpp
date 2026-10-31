@@ -235,6 +235,18 @@ public:
     }
 
     /**
+     * @brief 把已弹出的帧放回发送队列（发送失败时重试用）
+     *
+     * 帧内容与优先级保持不变，按优先级插回队列。
+     *
+     * @param f 待放回的帧（必须来自 PopNextFrameLocked）
+     */
+    void RequeueFrameLocked(TxFrame* f)
+    {
+        InsertFrameByPriorityLocked(f);
+    }
+
+    /**
      * @brief 归还帧到空闲链（头插）
      * @param f 待归还的帧
      */
