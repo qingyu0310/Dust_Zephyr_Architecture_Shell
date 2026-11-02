@@ -49,24 +49,20 @@ const Entry *Var::Find(const char *name)
  */
 void Var::PrintVar(const Entry &e)
 {
-    char line[160];
-
     switch (e.type)
     {
-        case VarType::Uint8:   snprintf(line, sizeof(line), "  %s (u8)    = %u",   e.name, *static_cast<const uint8_t*>(e.ptr));   break;
-        case VarType::Int8:    snprintf(line, sizeof(line), "  %s (i8)    = %d",   e.name, *static_cast<const int8_t*>(e.ptr));    break;
-        case VarType::Uint16:  snprintf(line, sizeof(line), "  %s (u16)   = %u",   e.name, *static_cast<const uint16_t*>(e.ptr));  break;
-        case VarType::Int16:   snprintf(line, sizeof(line), "  %s (i16)   = %d",   e.name, *static_cast<const int16_t*>(e.ptr));   break;
-        case VarType::Uint32:  snprintf(line, sizeof(line), "  %s (u32)   = %u",   e.name, *static_cast<const uint32_t*>(e.ptr));  break;
-        case VarType::Int32:   snprintf(line, sizeof(line), "  %s (i32)   = %d",   e.name, *static_cast<const int32_t*>(e.ptr));   break;
-        case VarType::Uint64:  snprintf(line, sizeof(line), "  %s (u64)   = %llu", e.name, *static_cast<const uint64_t*>(e.ptr));  break;
-        case VarType::Int64:   snprintf(line, sizeof(line), "  %s (i64)   = %lld", e.name, *static_cast<const int64_t*>(e.ptr));   break;
-        case VarType::Float:   snprintf(line, sizeof(line), "  %s (float) = %f",   e.name,  static_cast<double>(*static_cast<const float*>(e.ptr)));   break;
-        case VarType::Double:  snprintf(line, sizeof(line), "  %s (double)= %lf",  e.name, *static_cast<const double*>(e.ptr));    break;
-        case VarType::Bool:    snprintf(line, sizeof(line), "  %s (bool)  = %s",   e.name, *static_cast<const bool*>(e.ptr) ? "true" : "false");       break;
+        case VarType::Uint8:   DUST_LOG_RAW("  %s (u8)    = %u",   e.name, *static_cast<const uint8_t*>(e.ptr));   break;
+        case VarType::Int8:    DUST_LOG_RAW("  %s (i8)    = %d",   e.name, *static_cast<const int8_t*>(e.ptr));    break;
+        case VarType::Uint16:  DUST_LOG_RAW("  %s (u16)   = %u",   e.name, *static_cast<const uint16_t*>(e.ptr));  break;
+        case VarType::Int16:   DUST_LOG_RAW("  %s (i16)   = %d",   e.name, *static_cast<const int16_t*>(e.ptr));   break;
+        case VarType::Uint32:  DUST_LOG_RAW("  %s (u32)   = %u",   e.name, *static_cast<const uint32_t*>(e.ptr));  break;
+        case VarType::Int32:   DUST_LOG_RAW("  %s (i32)   = %d",   e.name, *static_cast<const int32_t*>(e.ptr));   break;
+        case VarType::Uint64:  DUST_LOG_RAW("  %s (u64)   = %llu", e.name, *static_cast<const uint64_t*>(e.ptr));  break;
+        case VarType::Int64:   DUST_LOG_RAW("  %s (i64)   = %lld", e.name, *static_cast<const int64_t*>(e.ptr));   break;
+        case VarType::Float:   DUST_LOG_RAW("  %s (float) = %f",   e.name, static_cast<double>(*static_cast<const float*>(e.ptr)));   break;
+        case VarType::Double:  DUST_LOG_RAW("  %s (double)= %lf",  e.name, *static_cast<const double*>(e.ptr));    break;
+        case VarType::Bool:    DUST_LOG_RAW("  %s (bool)  = %s",   e.name, *static_cast<const bool*>(e.ptr) ? "true" : "false");       break;
     }
-
-    Log::SendCommandLine(line);
 }
 
 /**
@@ -75,24 +71,20 @@ void Var::PrintVar(const Entry &e)
  */
 void Var::PrintValueOnly(const Entry &e)
 {
-    char line[160];
-
     switch (e.type)
     {
-        case VarType::Uint8:   snprintf(line, sizeof(line), "%s = %u",   e.name, *static_cast<const uint8_t*>(e.ptr));   break;
-        case VarType::Int8:    snprintf(line, sizeof(line), "%s = %d",   e.name, *static_cast<const int8_t*>(e.ptr));    break;
-        case VarType::Uint16:  snprintf(line, sizeof(line), "%s = %u",   e.name, *static_cast<const uint16_t*>(e.ptr));  break;
-        case VarType::Int16:   snprintf(line, sizeof(line), "%s = %d",   e.name, *static_cast<const int16_t*>(e.ptr));   break;
-        case VarType::Uint32:  snprintf(line, sizeof(line), "%s = %u",   e.name, *static_cast<const uint32_t*>(e.ptr));  break;
-        case VarType::Int32:   snprintf(line, sizeof(line), "%s = %d",   e.name, *static_cast<const int32_t*>(e.ptr));   break;
-        case VarType::Uint64:  snprintf(line, sizeof(line), "%s = %llu", e.name, *static_cast<const uint64_t*>(e.ptr));  break;
-        case VarType::Int64:   snprintf(line, sizeof(line), "%s = %lld", e.name, *static_cast<const int64_t*>(e.ptr));   break;
-        case VarType::Float:   snprintf(line, sizeof(line), "%s = %f",   e.name,  static_cast<double>(*static_cast<const float*>(e.ptr)));   break;
-        case VarType::Double:  snprintf(line, sizeof(line), "%s = %lf",  e.name, *static_cast<const double*>(e.ptr));    break;
-        case VarType::Bool:    snprintf(line, sizeof(line), "%s = %s",   e.name, *static_cast<const bool*>(e.ptr) ? "true" : "false");       break;
+        case VarType::Uint8:   DUST_LOG_RAW("%s = %u",   e.name, *static_cast<const uint8_t*>(e.ptr));   break;
+        case VarType::Int8:    DUST_LOG_RAW("%s = %d",   e.name, *static_cast<const int8_t*>(e.ptr));    break;
+        case VarType::Uint16:  DUST_LOG_RAW("%s = %u",   e.name, *static_cast<const uint16_t*>(e.ptr));  break;
+        case VarType::Int16:   DUST_LOG_RAW("%s = %d",   e.name, *static_cast<const int16_t*>(e.ptr));   break;
+        case VarType::Uint32:  DUST_LOG_RAW("%s = %u",   e.name, *static_cast<const uint32_t*>(e.ptr));  break;
+        case VarType::Int32:   DUST_LOG_RAW("%s = %d",   e.name, *static_cast<const int32_t*>(e.ptr));   break;
+        case VarType::Uint64:  DUST_LOG_RAW("%s = %llu", e.name, *static_cast<const uint64_t*>(e.ptr));  break;
+        case VarType::Int64:   DUST_LOG_RAW("%s = %lld", e.name, *static_cast<const int64_t*>(e.ptr));   break;
+        case VarType::Float:   DUST_LOG_RAW("%s = %f",   e.name, static_cast<double>(*static_cast<const float*>(e.ptr)));   break;
+        case VarType::Double:  DUST_LOG_RAW("%s = %lf",  e.name, *static_cast<const double*>(e.ptr));    break;
+        case VarType::Bool:    DUST_LOG_RAW("%s = %s",   e.name, *static_cast<const bool*>(e.ptr) ? "true" : "false");       break;
     }
-
-    Log::SendCommandLine(line);
 }
 
 /**
@@ -102,16 +94,14 @@ void Var::CmdList()
 {
     size_t n = __shell_var_end - __shell_var_start;
 
-    if (n == 0) { Log::SendCommandLine("(none)"); return; }
+    if (n == 0) { DUST_LOG_RAW("(none)"); return; }
 
     for (size_t i = 0; i < n; i++)
     {
         PrintVar(__shell_var_start[i]);
     }
 
-    char line[160];
-    snprintf(line, sizeof(line), "--- %zu variables ---", n);
-    Log::SendCommandLine(line);
+    DUST_LOG_RAW("--- %zu variables ---", n);
 }
 
 /**
@@ -124,9 +114,7 @@ void Var::CmdGet(const char *name)
 
     if (e == nullptr)
     {
-        char line[128];
-        snprintf(line, sizeof(line), "not found: %s", name);
-        Log::SendCommandLine(line);
+        DUST_LOG_RAW("not found: %s", name);
         return;
     }
 
@@ -144,9 +132,7 @@ void Var::CmdSet(const char *name, const char *val)
 
     if (e == nullptr)
     {
-        char line[128];
-        snprintf(line, sizeof(line), "not found: %s", name);
-        Log::SendCommandLine(line);
+        DUST_LOG_RAW("not found: %s", name);
         return;
     }
 
@@ -159,7 +145,7 @@ void Var::CmdSet(const char *name, const char *val)
         {
             char *end = nullptr;
             unsigned long long v = std::strtoull(val, &end, 0);
-            if (*end != '\0') { Log::SendCommandLine("bad value"); return; }
+            if (*end != '\0') { DUST_LOG_RAW("bad value"); return; }
             switch (e->type)
             {
                 case VarType::Uint8:   *static_cast<uint8_t*> (e->ptr) = static_cast<uint8_t> (v); break;
@@ -177,7 +163,7 @@ void Var::CmdSet(const char *name, const char *val)
         {
             char *end = nullptr;
             long long v = std::strtoll(val, &end, 0);
-            if (*end != '\0') { Log::SendCommandLine("bad value"); return; }
+            if (*end != '\0') { DUST_LOG_RAW("bad value"); return; }
             switch (e->type)
             {
                 case VarType::Int8:   *static_cast<int8_t*> (e->ptr) = static_cast<int8_t> (v); break;
@@ -192,7 +178,7 @@ void Var::CmdSet(const char *name, const char *val)
         {
             char *end = nullptr;
             float v = std::strtof(val, &end);
-            if (*end != '\0') { Log::SendCommandLine("bad value"); return; }
+            if (*end != '\0') { DUST_LOG_RAW("bad value"); return; }
             *static_cast<float*>(e->ptr) = v;
             break;
         }
@@ -200,7 +186,7 @@ void Var::CmdSet(const char *name, const char *val)
         {
             char *end = nullptr;
             double v = std::strtod(val, &end);
-            if (*end != '\0') { Log::SendCommandLine("bad value"); return; }
+            if (*end != '\0') { DUST_LOG_RAW("bad value"); return; }
             *static_cast<double*>(e->ptr) = v;
             break;
         }
@@ -211,13 +197,13 @@ void Var::CmdSet(const char *name, const char *val)
                 v = true;
             else if (std::strcmp(val, "false") == 0 || std::strcmp(val, "0") == 0)
                 v = false;
-            else { Log::SendCommandLine("bad value"); return; }
+            else { DUST_LOG_RAW("bad value"); return; }
             *static_cast<bool*>(e->ptr) = v;
             break;
         }
     }
 
-    Log::SendCommandLine("ok");
+    DUST_LOG_RAW("ok");
 }
 
 /**
@@ -255,7 +241,7 @@ void Var::CmdGetSub(uint8_t* args)
     NextToken(args, name);
 
     if (*name == '\0') {
-        Log::SendCommandLine("usage: var get <name>");
+        DUST_LOG_RAW("usage: var get <name>");
         return;
     }
 
@@ -272,7 +258,7 @@ void Var::CmdSetSub(uint8_t* args)
     uint8_t* rest = NextToken(args, name);
 
     if (*name == '\0' || *rest == '\0') {
-        Log::SendCommandLine("usage: var set <name> <value>");
+        DUST_LOG_RAW("usage: var set <name> <value>");
         return;
     }
 
@@ -286,7 +272,7 @@ void Var::CmdSetSub(uint8_t* args)
 void Var::CmdUsage(uint8_t* args)
 {
     (void)args;
-    Log::SendCommandLine("var list|get <name>|set <name> <val>");
+    DUST_LOG_RAW("var list|get <name>|set <name> <val>");
 }
 
 REGISTER_SHELL_CMD("var", "var list|get|set", Var::Process);

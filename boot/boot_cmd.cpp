@@ -29,11 +29,8 @@ static void PrintTiming(const BootTimingSlot* slot)
 {
     if (slot == nullptr) return;
 
-    char line[96];
-
     const uint32_t us = slot->ns / 1000U;
-    snprintf(line, sizeof(line), "  %-16s %6u.%03u ms   %s", slot->name, (unsigned)(us / 1000U), (unsigned)(us % 1000U), slot->ok ? "ok" : "FAIL");
-    Log::SendCommandLine(line);
+    DUST_LOG_RAW("  %-16s %6u.%03u ms   %s", slot->name, (unsigned)(us / 1000U), (unsigned)(us % 1000U), slot->ok ? "ok" : "FAIL");
 }
 
 /**
@@ -47,14 +44,12 @@ void BootCmd::CmdTiming()
     const uint8_t count = BootTiming::Count();
 
     if (count == 0) {
-        Log::SendCommandLine("(no boot timing recorded)");
+        DUST_LOG_RAW("(no boot timing recorded)");
         return;
     }
 
-    char head[64];
     const double total_ms = static_cast<double>(BootTiming::TotalNs() / 1000000.0);
-    snprintf(head, sizeof(head), "BOOT TIMING (total %.3f ms, %u items)", total_ms, (unsigned)count);
-    Log::SendCommandLine(head);
+    DUST_LOG_RAW("BOOT TIMING (total %.3f ms, %u items)", total_ms, (unsigned)count);
 
     uint32_t used = 0;   // 位图：已输出的槽
 
@@ -93,7 +88,7 @@ void BootCmd::Process(uint8_t* line)
     if (std::strcmp(sub, "timing") == 0) {
         CmdTiming();
     } else {
-        Log::SendCommandLine("boot timing");
+        DUST_LOG_RAW("boot timing");
     }
 }
 

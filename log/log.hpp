@@ -97,12 +97,6 @@ public:
     static void HandleTxDone()               { logproc::HandleTxDone(); }
 
     /**
-     * @brief 命令响应直发（不经过 log 过滤，带 \r\n，中档优先级）
-     * @param text 响应文本
-     */
-    static void SendCommandLine(const char* text) { logproc::CommandLine(text); }
-
-    /**
      * @brief 处理一条原始请求（shell 线程循环调用）
      * @return true 处理了一条；false 队列为空
      */

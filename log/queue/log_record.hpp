@@ -25,7 +25,7 @@ namespace shell {
 constexpr uint16_t kLogBufSize    = 256;		// 格式化缓冲：可变参数展开目标（超 255 截断）
 constexpr uint16_t kColorOutExtra = 16;			// 颜色输出缓冲额外预留（ANSI 转义 + \r\n）
 constexpr uint16_t kLineOutExtra  = 4;			// 行输出缓冲额外预留（\r\n）
-constexpr uint8_t  kMaxLogArgs    = 4;			// 参数快照槽上限（%f 占 2 槽）
+constexpr uint8_t  kMaxLogArgs    = 8;			// 参数快照槽上限（%f 占 2 槽）
 
 /**
  * @brief 日志原始请求（未格式化，异步段生产队列条目）

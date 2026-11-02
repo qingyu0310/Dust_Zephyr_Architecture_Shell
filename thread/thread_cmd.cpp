@@ -41,7 +41,7 @@ static const char* StateName(const ThreadStats& s)
  */
 void ThreadCmd::CmdList()
 {
-    Log::SendCommandLine("THREAD          STATE     RUN      RETRY   DROP    STACK");
+    DUST_LOG_RAW("THREAD          STATE     RUN      RETRY   DROP    STACK");
 
     const uint8_t count = thread_registry::Count();
     for (uint8_t i = 0; i < count; ++i)
@@ -52,14 +52,10 @@ void ThreadCmd::CmdList()
         ThreadStats s {};
         if (!t->GetStats(s)) continue;
 
-        char line[128];
-        snprintf(line, sizeof(line), "%-15s %-9s %-8u %-7u %-7u %u", s.name, StateName(s), (unsigned)s.run_count, (unsigned)s.retry_count, (unsigned)s.drop_count, (unsigned)s.stack_unused);
-        Log::SendCommandLine(line);
+        DUST_LOG_RAW("%-15s %-9s %-8u %-7u %-7u %u", s.name, StateName(s), (unsigned)s.run_count, (unsigned)s.retry_count, (unsigned)s.drop_count, (unsigned)s.stack_unused);
     }
 
-    char tail[32];
-    snprintf(tail, sizeof(tail), "--- %u threads ---", (unsigned)count);
-    Log::SendCommandLine(tail);
+    DUST_LOG_RAW("--- %u threads ---", (unsigned)count);
 }
 
 /**
@@ -69,61 +65,32 @@ void ThreadCmd::CmdList()
 void ThreadCmd::CmdShow(const char* name)
 {
     if (name == nullptr || *name == '\0') {
-        Log::SendCommandLine("usage: thread show <name>");
+        DUST_LOG_RAW("usage: thread show <name>");
         return;
     }
 
     ThreadBase* t = thread_registry::Find(name);
     if (t == nullptr) {
-        Log::SendCommandLine("thread show: not found");
+        DUST_LOG_RAW("thread show: not found");
         return;
     }
 
     ThreadStats s {};
     if (!t->GetStats(s)) {
-        Log::SendCommandLine("thread show: not started");
+        DUST_LOG_RAW("thread show: not started");
         return;
     }
 
-    char line[128];
-
-    snprintf(line, sizeof(line), "%s:", s.name);
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %s", "state", StateName(s));
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u", "run", (unsigned)s.run_count);
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u", "retry", (unsigned)s.retry_count);
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u", "drop", (unsigned)s.drop_count);
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "task last",
-             (unsigned)(s.last_run_ns / 1000ULL),
-             (unsigned)(s.last_run_ns % 1000ULL));
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "task max",
-             (unsigned)(s.max_run_ns / 1000ULL),
-             (unsigned)(s.max_run_ns % 1000ULL));
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "overhead last",
-             (unsigned)(s.last_overhead_ns / 1000ULL),
-             (unsigned)(s.last_overhead_ns % 1000ULL));
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u.%03u us", "overhead max",
-             (unsigned)(s.max_overhead_ns / 1000ULL),
-             (unsigned)(s.max_overhead_ns % 1000ULL));
-    Log::SendCommandLine(line);
-
-    snprintf(line, sizeof(line), "  %-14s %u B unused", "stack", (unsigned)s.stack_unused);
-    Log::SendCommandLine(line);
+    DUST_LOG_RAW("%s:", s.name);
+    DUST_LOG_RAW("  %-14s %s", "state", StateName(s));
+    DUST_LOG_RAW("  %-14s %u", "run", (unsigned)s.run_count);
+    DUST_LOG_RAW("  %-14s %u", "retry", (unsigned)s.retry_count);
+    DUST_LOG_RAW("  %-14s %u", "drop", (unsigned)s.drop_count);
+    DUST_LOG_RAW("  %-14s %u.%03u us", "task last", (unsigned)(s.last_run_ns / 1000ULL), (unsigned)(s.last_run_ns % 1000ULL));
+    DUST_LOG_RAW("  %-14s %u.%03u us", "task max", (unsigned)(s.max_run_ns / 1000ULL), (unsigned)(s.max_run_ns % 1000ULL));
+    DUST_LOG_RAW("  %-14s %u.%03u us", "overhead last", (unsigned)(s.last_overhead_ns / 1000ULL), (unsigned)(s.last_overhead_ns % 1000ULL));
+    DUST_LOG_RAW("  %-14s %u.%03u us", "overhead max", (unsigned)(s.max_overhead_ns / 1000ULL), (unsigned)(s.max_overhead_ns % 1000ULL));
+    DUST_LOG_RAW("  %-14s %u B unused", "stack", (unsigned)s.stack_unused);
 }
 
 /**
@@ -133,18 +100,18 @@ void ThreadCmd::CmdShow(const char* name)
 void ThreadCmd::CmdPause(const char* name)
 {
     if (name == nullptr || *name == '\0') {
-        Log::SendCommandLine("usage: thread pause <name>");
+        DUST_LOG_RAW("usage: thread pause <name>");
         return;
     }
 
     ThreadBase* t = thread_registry::Find(name);
     if (t == nullptr) {
-        Log::SendCommandLine("thread pause: not found");
+        DUST_LOG_RAW("thread pause: not found");
         return;
     }
 
     t->Pause();
-    Log::SendCommandLine("thread pause: ok");
+    DUST_LOG_RAW("thread pause: ok");
 }
 
 /**
@@ -154,18 +121,18 @@ void ThreadCmd::CmdPause(const char* name)
 void ThreadCmd::CmdResume(const char* name)
 {
     if (name == nullptr || *name == '\0') {
-        Log::SendCommandLine("usage: thread resume <name>");
+        DUST_LOG_RAW("usage: thread resume <name>");
         return;
     }
 
     ThreadBase* t = thread_registry::Find(name);
     if (t == nullptr) {
-        Log::SendCommandLine("thread resume: not found");
+        DUST_LOG_RAW("thread resume: not found");
         return;
     }
 
     t->Resume();
-    Log::SendCommandLine("thread resume: ok");
+    DUST_LOG_RAW("thread resume: ok");
 }
 
 /**
@@ -178,23 +145,23 @@ void ThreadCmd::CmdResume(const char* name)
 void ThreadCmd::CmdExit(const char* name)
 {
     if (name == nullptr || *name == '\0') {
-        Log::SendCommandLine("usage: thread exit <name>");
+        DUST_LOG_RAW("usage: thread exit <name>");
         return;
     }
 
     ThreadBase* t = thread_registry::Find(name);
     if (t == nullptr) {
-        Log::SendCommandLine("thread exit: not found");
+        DUST_LOG_RAW("thread exit: not found");
         return;
     }
 
     if (t->KeepAlive()) {
-        Log::SendCommandLine("thread exit: reserved, refused");
+        DUST_LOG_RAW("thread exit: reserved, refused");
         return;
     }
 
     t->Exit();
-    Log::SendCommandLine("thread exit: ok");
+    DUST_LOG_RAW("thread exit: ok");
 }
 
 /**
@@ -204,18 +171,18 @@ void ThreadCmd::CmdExit(const char* name)
 void ThreadCmd::CmdReset(const char* name)
 {
     if (name == nullptr || *name == '\0') {
-        Log::SendCommandLine("usage: thread reset <name>");
+        DUST_LOG_RAW("usage: thread reset <name>");
         return;
     }
 
     ThreadBase* t = thread_registry::Find(name);
     if (t == nullptr) {
-        Log::SendCommandLine("thread reset: not found");
+        DUST_LOG_RAW("thread reset: not found");
         return;
     }
 
     t->ResetStats();
-    Log::SendCommandLine("thread reset: ok");
+    DUST_LOG_RAW("thread reset: ok");
 }
 
 /**
@@ -298,7 +265,7 @@ void ThreadCmd::CmdResetSub(uint8_t* args)
 void ThreadCmd::CmdUsage(uint8_t* args)
 {
     (void)args;
-    Log::SendCommandLine("thread list|show|pause|resume|exit|reset <name>");
+    DUST_LOG_RAW("thread list|show|pause|resume|exit|reset <name>");
 }
 
 REGISTER_SHELL_CMD("thread", "thread list|show|pause|resume|exit|reset", ThreadCmd::Process);

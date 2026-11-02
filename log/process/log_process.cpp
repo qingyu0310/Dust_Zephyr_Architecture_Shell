@@ -77,11 +77,12 @@ bool PassDivisor(LogEntry* e)
  * @param text   待包装的纯文本
  * @param out    输出缓冲
  * @param cap    输出缓冲容量
+ * @param ansi   是否上 ANSI 颜色（记录快照，DBG 由 log mode 决定）
  * @return 写入字节数；<=0 表示失败
  */
-int Wrap(const LogChannelPolicy& policy, const char* text, char* out, size_t cap)
+int Wrap(const LogChannelPolicy& policy, const char* text, char* out, size_t cap, bool ansi)
 {
-    if (!policy.ansi_color) {
+    if (!ansi) {
         return snprintf(out, cap, "%s%s\r\n", policy.prefix, text);
     }
 
@@ -176,7 +177,7 @@ void Emit(LogChannel channel, const char* fmt, va_list ap)
         vsnprintf(buf, sizeof(buf), fmt, ap);                               // picolibc 支持 %f（prj.conf 已开）
 
         char out[kLogBufSize + kColorOutExtra];
-        int n = Wrap(policy, buf, out, sizeof(out));
+        int n = Wrap(policy, buf, out, sizeof(out), policy.ansi_color);
         if (n > 0) QueueFrameAndSendNow(out, n, policy.priority, 0);
         return;
     }
@@ -286,7 +287,7 @@ void CommandLine(const char* text)
     const LogChannelPolicy& policy = GetLogChannelPolicy(LogChannel::Command);
     char out[kLogBufSize + kLineOutExtra];
 
-    int n = Wrap(policy, text, out, sizeof(out));
+    int n = Wrap(policy, text, out, sizeof(out), policy.ansi_color);
     if (n > 0) QueueFrameAndSendNow(out, n, policy.priority, 0);    // 命令响应：调用点直发
 }
 
@@ -308,7 +309,7 @@ bool ExpandOneRecord()
     const LogChannelPolicy& policy = GetLogChannelPolicy(r->channel);
     char out[kLogBufSize + kColorOutExtra];
 
-    int n = Wrap(policy, text, out, sizeof(out));
+    int n = Wrap(policy, text, out, sizeof(out), r->ansi);
     if (n > 0) QueueFrameForShellSend(out, n, r->prio, r->epoch);
 
     key = irq_lock();

@@ -43,9 +43,7 @@ void Shell::PrintHelp()
 {
     for (const ShellCmdEntry* e = ShellCmdBegin(); e < ShellCmdEnd(); ++e)
     {
-        char line[80];
-        snprintf(line, sizeof(line), "%-8s %s", e->name, e->help);
-        Log::SendCommandLine(line);
+        DUST_LOG_RAW("%-8s %s", e->name, e->help);
     }
 }
 
@@ -73,7 +71,7 @@ void Shell::ProcessLine(uint8_t *line)
         }
     }
 
-    Log::SendCommandLine("unknown command");
+    DUST_LOG_RAW("unknown command");
 }
 
 /**
