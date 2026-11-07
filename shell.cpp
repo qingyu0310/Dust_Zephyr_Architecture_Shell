@@ -104,7 +104,7 @@ TaskResult Shell::Task(void *context)
         Log::SendNextFrameIfIdle();
     }
 
-    uint8_t buf[32];
+    uint8_t  buf[32];
     uint16_t n = stream_->Read(buf, sizeof(buf));
     if (n == 0) return TaskResult::Continue;       // 发送唤醒，无接收数据
 
