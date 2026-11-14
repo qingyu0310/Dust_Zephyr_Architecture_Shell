@@ -21,14 +21,14 @@
 namespace shell {
 
 constexpr uint8_t  kNullIndex     = 255;		// 索引链表空值（255 = 无下一项）
-constexpr uint16_t kTxFrameSize   = 128;		// 发送帧数据区大小（含 \0 保险）
-constexpr uint16_t kTxMaxLen      = 127;		// 发送最长字节长度：超了截断
+constexpr uint16_t kTxFrameSize   = 256;		// 发送帧数据区大小（含 \0 保险）
+constexpr uint16_t kTxMaxLen      = 255;		// 发送最长字节长度：超了截断
 // 帧数：8 × 128B = 1KB 内存池（2026-08-10 由 4 扩到 8：命令响应连发突发缓冲，见 doc/log命令响应回退规划.md）
 // 容量语义（实测 2026-08-06）：K 帧池 → 同一时间最多连发 K+1 条（1 DMA 中 + K 排队），
 // 第 K+2 条起丢（事件永不挤）；稳态平均速率 < 波特率/10（921600 → 92160 B/s）且
 // 帧池 ≥ 峰值突发条数时，可无限闭环（永不枯竭）
-constexpr uint8_t  kTxPoolCount   = 8;
-constexpr uint8_t  kMaxLogRecords = 8;			// LogRecord 原始请求队列深度（8×26B=208B）
+constexpr uint8_t  kTxPoolCount   = 16;
+constexpr uint8_t  kMaxLogRecords = 16;			// LogRecord 原始请求队列深度（8×26B=208B）
 
 /**
  * @brief 发送帧（三档共用）
